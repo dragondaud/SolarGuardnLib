@@ -1,0 +1,13 @@
+SolarGuardn		KEYWORD1
+flushIn			KEYWORD2
+checkSer		KEYWORD2
+UrlEncode		KEYWORD2
+getIPlocation	KEYWORD2
+getLocation		KEYWORD2
+getTimeZone		KEYWORD2
+setNTP			KEYWORD2
+upTime			KEYWORD2
+mqttConnect		KEYWORD2
+mqttPublish		KEYWORD2
+gMapsCrt		LITERAL1
+UserAgent		LITERAL1
