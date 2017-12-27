@@ -6,12 +6,6 @@
 
    Connect HC-SR04 VCC to 5V, GND to GND, ECHO to D1 (in), TRIG to D2 (out)
 
-   Accepts the following one character commands from serial:
-     c : clear crash information
-     e : attempt to read through a pointer to no object
-     0 : attempt to divide by zero
-     r : restart esp
-
    Configures NTP and sets timezone automatically from geoIP location
    GeoIP location can be overridden by setting location string to postal code.
 

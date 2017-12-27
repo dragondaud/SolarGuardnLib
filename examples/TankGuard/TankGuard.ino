@@ -1,5 +1,5 @@
 /*
-   SolarGuardn - TankGuard v0.8.00 PRE-RELEASE 22-Dec-2017
+   SolarGuardn - TankGuard v0.8.1 PRE-RELEASE 27-Dec-2017
    by David Denney <dragondaud@gmail.com>
 */
 
@@ -9,7 +9,7 @@ void setup() {
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
   while (!Serial);
-  flushIn(Serial);
+  sg.flushIn(Serial);
   delay(100);
   Serial.println();
   Serial.print(F("setup: WiFi connecting to "));
@@ -17,26 +17,28 @@ void setup() {
   Serial.print(F("..."));
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  if (HOST != "") WiFi.hostname(HOST);
+  if (sg.host == "") {
+    String t = WiFi.macAddress();
+    sg.host = String(HOST) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
+  }
+  WiFi.hostname(sg.host);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(F("."));
     delay(500);
   }
+  MDNS.begin(sg.host.c_str());
   Serial.println(F(" OK"));
-  if (HOST == "") HOST = WiFi.hostname();
-  MDNS.begin(HOST.c_str());
 
-  if (location == "") {
-    location = getIPlocation();
+  if (sg.location == "") {
+    sg.location = sg.getIPlocation();
   } else {
-    getIPlocation();
-    location = getLocation(location, gMapsKey);
+    sg.getIPlocation();
+    sg.location = sg.getLocation(sg.location, gMapsKey);
   }
-  setNTP();
+  sg.setNTP();
 
   ArduinoOTA.onStart([]() {
-    mqttPublish("debug", "OTA UPDATE");
     Serial.println(F("\nOTA: Start"));
   } );
   ArduinoOTA.onEnd([]() {
@@ -60,7 +62,7 @@ void setup() {
   ArduinoOTA.begin();
 
   MQTTclient.setServer(MQTT_SERV, MQTT_PORT);
-  mqttConnect();
+  sg.mqttConnect(MQTTclient);
 
   pinMode(BUILTIN_LED, OUTPUT);
 
@@ -83,12 +85,12 @@ void setup() {
   }
 
   delay(1000);
-  UPTIME = time(nullptr);
+  sg.UPTIME = time(nullptr);
 
   Serial.print(F("Last reset reason: "));
   Serial.println(ESP.getResetReason());
   Serial.print(F("WiFi Hostname: "));
-  Serial.println(HOST);
+  Serial.println(sg.host);
   Serial.print(F("WiFi IP addr: "));
   Serial.println(WiFi.localIP());
   Serial.print(F("WiFi gw addr: "));
@@ -107,12 +109,11 @@ void setup() {
 void loop() {
   if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
     String t = "Invalid null address";
-    mqttPublish("debug", t);
+    sg.mqttPublish(MQTTclient, "debug", t);
     Serial.println(t);
     delay(500);
     ESP.restart();
   }
-  checkSer();
   ArduinoOTA.handle();
   MQTTclient.loop();
   if (millis() > TIMER) {
@@ -126,13 +127,13 @@ void loop() {
   float temp, humid, pressure;
   int heap = ESP.getFreeHeap();
   time_t now = time(nullptr);
-  if (now > TWOAM) {
+  if (now > sg.TWOAM) {
     Serial.println();
-    setNTP();
+    sg.setNTP();
   }
   String t = ctime(&now);
   t.trim(); // ctime returns extra whitespace
-  String u = upTime(now);
+  String u = sg.upTime(now);
   int range = getDist();
   if (isBME) {
     bme.read(pressure, temp, humid);
@@ -145,7 +146,7 @@ void loop() {
   }
   t = "{\"temp\": " + String(round(temp)) + ", \"humid\": " + String(round(humid)) + \
       ", \"range\": " + String(range) + ", \"timestamp\": " + String(now) + ", \"freeheap\": " + String(heap) + "}";
-  mqttPublish("data", t);
+  sg.mqttPublish(MQTTclient, "data", t);
   for (int i = 23; i < 1023; i++) {
     analogWrite(BUILTIN_LED, i);
     delay(2);

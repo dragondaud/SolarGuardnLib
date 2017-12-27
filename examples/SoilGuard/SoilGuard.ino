@@ -1,5 +1,5 @@
 /*
-   SolarGuardn - SoilGuard v0.8.0 PRE-RELEASE 22-Dec-2017
+   SolarGuardn - SoilGuard v0.8.1 PRE-RELEASE 27-Dec-2017
    by David Denney <dragondaud@gmail.com>
 */
 
