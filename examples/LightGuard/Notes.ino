@@ -14,7 +14,7 @@
 
    Master repository: https://github.com/dragondaud/SolarGuardn
 
-   Designed to run on an NodeMCU board with a BME280 and ultrasonic range finder
+   Designed to run on an NodeMCU board with a BME280 and TCS34725 RGB light sensor
    Board: NodeMCU 1.0, Freq: 80MHz, Flash: 4M (1M SPIFFS), Speed: 115200, Port: serial or OTA IP
 
 */
