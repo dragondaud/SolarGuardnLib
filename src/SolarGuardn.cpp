@@ -55,8 +55,8 @@ String SolarGuardn::getIPlocation() {  // Using freegeoip.net to map public IP's
           String lat = root["latitude"];
           String lng = root["longitude"];
           loc = lat + "," + lng;
-          _pubip = root["ip"];
-          Serial.println("getIPlocation: " + region + ", " + country);
+          String ip = root["ip"];
+          _pubip.fromString(ip);
         } else {
           Serial.println(F("getIPlocation: JSON parse failed!"));
           Serial.println(payload);
@@ -93,8 +93,6 @@ String SolarGuardn::getLocation(const String address, const char* key) { // usin
           String lat = results_geometry["location"]["lat"];
           String lng = results_geometry["location"]["lng"];
           loc = lat + "," + lng;
-          Serial.print(F("getLocation: "));
-          Serial.println(address);
         } else {
           Serial.println(F("getLocation: JSON parse failed!"));
           Serial.println(payload);
@@ -186,7 +184,7 @@ bool SolarGuardn::mqttConnect(PubSubClient mqtt) {  // connect MQTT and emit ESP
     Serial.print("MQTT connected to ");
     Serial.println(String(_mqttServer) + ":" + String(_mqttPort));
     String t = "{\"hostname\": \"" + host + "\", \"wifi_ip\": \"" + WiFi.localIP().toString() + \
-               "\", \"public_ip\": \"" + _pubip + "\", \"reset_reason\": \"" + ESP.getResetReason() + \
+               "\", \"public_ip\": \"" + _pubip.toString() + "\", \"reset_reason\": \"" + ESP.getResetReason() + \
                "\", \"location\": \"" + location + "\", \"timestamp\": " + String(now) + \
                ", \"freeheap\": " + String(ESP.getFreeHeap()) + "}";
     mqttPublish(mqtt, "debug", t);

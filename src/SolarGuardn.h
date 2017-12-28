@@ -35,7 +35,7 @@ class SolarGuardn {
 		time_t UPTIME;
 
 	protected:
-		const char * _pubip;
+		IPAddress _pubip;
 		const char * _mqttServer;
 		unsigned int _mqttPort;
 		const char * _mqttTopic;
