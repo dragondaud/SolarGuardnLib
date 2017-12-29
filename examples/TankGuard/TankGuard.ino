@@ -124,7 +124,6 @@ void loop() {
   }
   analogWrite(BUILTIN_LED, 1);
   String ip = WiFi.localIP().toString();
-  float temp, humid, pressure;
   int heap = ESP.getFreeHeap();
   time_t now = time(nullptr);
   if (now > sg.TWOAM) {
@@ -135,12 +134,13 @@ void loop() {
   t.trim(); // ctime returns extra whitespace
   String u = sg.upTime(now);
   int range = getDist();
+  float temp, humid, pressure;
   if (isBME) {
     bme.read(pressure, temp, humid);
     temp = temp * 1.8F + 32.0F;
     pressure = pressure * 0.02953;
     Serial.printf("%s: %s, %d°F, %d%%RH, %d.%d inHg, %d mm, %s uptime, %d heap \r", t.c_str(), \
-                  ip.c_str(), round(temp), round(humid), round(pressure / 100), int(pressure) % 100, range, u.c_str(), heap);
+                  ip.c_str(), round(temp), round(humid), int(pressure / 100), int(pressure) % 100, range, u.c_str(), heap);
   } else {
     Serial.printf("%s: %s, %d mm, %s uptime, %d heap \r", ip.c_str(), t.c_str(), range, u.c_str(), heap);
   }
