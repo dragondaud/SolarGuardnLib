@@ -11,3 +11,6 @@ mqttConnect		KEYWORD2
 mqttPublish		KEYWORD2
 gMapsCrt		LITERAL1
 UserAgent		LITERAL1
+UPTIME			LITERAL1
+TWOAM			LITERAL1
+_out			LITERAL1
