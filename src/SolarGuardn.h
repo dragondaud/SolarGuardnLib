@@ -12,9 +12,12 @@
 #include <time.h>                 // included
 #include <Wire.h>                 // included
 #include <ArduinoJson.h>          // install ArduinoJson using library manager, https://github.com/bblanchon/ArduinoJson/
-#include <EspSaveCrash.h>         // install EspSaveCrash using library manager, https://github.com/krzychb/EspSaveCrash
 #include <PubSubClient.h>         // install PubSubClient using library manager, https://github.com/knolleary/pubsubclient
 #include <BME280I2C.h>            // install BME280 using library manager, https://github.com/finitespace/BME280
+
+#include <EspSaveCrash.h>         // install EspSaveCrash using library manager, https://github.com/krzychb/EspSaveCrash
+#undef SAVE_CRASH_SPACE_SIZE
+#define SAVE_CRASH_SPACE_SIZE 0x1000  // FLASH space reserved to store crash data
 
 #define UserAgent	"SolarGuardn/1.0 (Arduino ESP8266)"
 #define SCL D6		// I2C clock
@@ -28,24 +31,29 @@ public:
 	SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, unsigned int port, const char* topic, const char* user, const char* pass, const char* key, Stream * out, PubSubClient & mqtt);
 
 	void setup();
-	void loop();
-	String UrlEncode(const String);
+	bool loop();
+	void ledOn(int pin);
+	void ledOff(int pin);
+	void setNTP();
+	String upTime(const time_t now);
 	String getIPlocation();
 	String getLocation(const String address, const char* key);
 	int getTimeZone(time_t now, String loc, const char* key);
-	void setNTP();
-	String upTime(const time_t now);
 	void mqttConnect();
 	void mqttPublish(String topic, String data);
+
 	String location;
-	time_t TWOAM;
+	time_t twoAM;
 	time_t UPTIME;
 
 private:
 	void flushIn();
+	String UrlEncode(const String);
+
 	Stream * _out;
 	IPAddress _pubip;
 	String _hostname;
+	long _timer;
 	const char* _wifi_ssid;
 	const char* _wifi_pass;
 	const char* _mqttServer;

@@ -91,14 +91,7 @@ void SolarGuardn::setup() {
 	_out->println(ESP.getFlashChipRealSize());
 } // setup()
 
-void SolarGuardn::flushIn() { // flush Stream input buffer (not what Serial.flush() does)
-	while (_out->available()) {
-		_out->read();
-	}
-	yield();
-} // flushIn
-
-void SolarGuardn::loop() {
+bool SolarGuardn::loop() {
 	if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
 		String t = "Invalid null address";
 		mqttPublish("debug", t);
@@ -124,6 +117,10 @@ void SolarGuardn::loop() {
 			nullPointer = NULL;
 			_out->print(*nullPointer);
 			break;
+		case 'p':
+			_out->println();
+			SaveCrash.print();
+			break;
 		case 'c':
 			SaveCrash.clear();
 			_out->println("\nCrash information cleared");
@@ -134,7 +131,8 @@ void SolarGuardn::loop() {
 			ESP.restart();
 			break;
 		default:
-			_out->println("\nc : clear crash information");
+			_out->println("\np : print crash information");
+			_out->println("c : clear crash information");
 			_out->println("e : attempt to read through a pointer to no object");
 			_out->println("0 : attempt to divide by zero");
 			_out->println("r : restart esp");
@@ -143,7 +141,34 @@ void SolarGuardn::loop() {
 	}
 	ArduinoOTA.handle();
 	_mqtt.loop();
+	if (millis() > _timer) {
+		_timer = millis() + 60000;
+		return true;
+	} else {
+		delay(5000);
+		return false;
+	}
 } // loop
+
+void SolarGuardn::ledOn(int pin) {	// LED on
+	analogWrite(pin, 1);
+} // ledOn
+
+void SolarGuardn::ledOff(int pin) {	// PWM dim LED to off
+  for (int i = 23; i < 1023; i++) {
+    analogWrite(pin, i);
+    delay(2);
+  }
+  analogWrite(BUILTIN_LED, 0);
+  digitalWrite(BUILTIN_LED, HIGH);
+} // ledOff
+
+void SolarGuardn::flushIn() { // flush Stream input buffer (not what Serial.flush() does)
+	while (_out->available()) {
+		_out->read();
+	}
+	yield();
+} // flushIn
 
 String SolarGuardn::UrlEncode(const String url) {  // escape non-alphanumerics in URL
 	String e;
@@ -286,8 +311,8 @@ void SolarGuardn::setNTP() { // using location configure NTP with local timezone
 	calendar->tm_hour = 2;
 	calendar->tm_min = 0;
 	calendar->tm_sec = 0;
-	TWOAM = mktime(calendar);
-	t = ctime(&TWOAM);
+	twoAM = mktime(calendar);
+	t = ctime(&twoAM);
 	t.trim();
 	_out->print("setNTP: next timezone check @ ");
 	_out->println(t);
@@ -298,8 +323,9 @@ String SolarGuardn::upTime(const time_t now) { // output UPTIME as HH:MM:SS
 	long s = t % 60;
 	long m = (t / 60) % 60;
 	long h = (t / (60 * 60)) % 24;
-	char ut[10];
-	snprintf(ut, sizeof(ut), "%d:%02d:%02d", h, m, s);
+	long d = (t / (60 * 60 * 24));
+	char ut[12];
+	snprintf(ut, sizeof(ut), "%d:%d:%02d:%02d", d, h, m, s);
 	return String(ut);
 } // upTime()
 
