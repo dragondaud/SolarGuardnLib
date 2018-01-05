@@ -1,5 +1,7 @@
 /*
 	SolarGuardn library
+	copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
+	distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
 #include "SolarGuardn.h"
@@ -318,7 +320,7 @@ void SolarGuardn::setNTP() { // using location configure NTP with local timezone
 	_out->println(t);
 } // setNTP
 
-String SolarGuardn::upTime(const time_t now) { // output UPTIME as HH:MM:SS
+String SolarGuardn::upTime(const time_t now) { // output UPTIME as d:h:MM:SS
 	long t = now - UPTIME;
 	long s = t % 60;
 	long m = (t / 60) % 60;

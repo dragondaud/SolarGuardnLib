@@ -1,3 +1,9 @@
+/*
+	SolarGuardn library
+	copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
+	distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
+*/
+
 #ifndef SolarGuardn_h
 #define SolarGuardn_h
 
