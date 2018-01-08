@@ -7,7 +7,7 @@
 #include "SolarGuardn.h"
 
 SolarGuardn::SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, unsigned int port, const char* topic, const char* user, const char* pass, const char* key, Stream * out, PubSubClient & mqtt) : _out(out) {
-	_hostname = hostname;
+	_hostname = String(hostname);
 	_wifi_ssid = wifi_ssid;
 	_wifi_pass = wifi_pass;
 	_mqttServer = server;
@@ -38,7 +38,6 @@ void SolarGuardn::setup() {
 		_out->print(".");
 		delay(500);
 	}
-	//MDNS.begin(_hostname.c_str());
 	_out->println(" OK");
 
 	if (location == "") {
@@ -49,12 +48,14 @@ void SolarGuardn::setup() {
 	}
 	setNTP();
 
+	ArduinoOTA.setHostname(_hostname.c_str());
 	ArduinoOTA.onStart([this]() {
 		_out->println("\nOTA: Start");
 	} );
 	ArduinoOTA.onEnd([this]() {
 		_out->println("\nOTA: End");
-		delay(500);
+		delay(1000);
+		ESP.restart();
 	} );
 	ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
 		_out->print("OTA Progress: " + String((progress / (total / 100))) + " \r");
@@ -328,6 +329,10 @@ String SolarGuardn::upTime(const time_t now) { // output UPTIME as d:h:MM:SS
 	long d = (t / (60 * 60 * 24));
 	char ut[12];
 	snprintf(ut, sizeof(ut), "%d:%d:%02d:%02d", d, h, m, s);
+	if (now > twoAM) {
+		_out->println();
+		setNTP();
+	}
 	return String(ut);
 } // upTime()
 
