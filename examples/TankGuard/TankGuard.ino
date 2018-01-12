@@ -18,49 +18,36 @@ void setup() {
   pinMode(POW, OUTPUT);
   digitalWrite(POW, HIGH);
   delay(100);
-  if (!bme.begin()) {
-    Serial.println(F("cannot find BME280 sensor"));
-    delay(5000);
-    ESP.restart();
-  }
+  // only one temp/humid sensor can be used
+#if defined (sgDHT)
+  dht.begin();
+#elif defined (sgHDC)
+  hdc.begin(0x40);
+#elif defined (sgBME)
+  if (!bme.begin()) sg.pubDebug(time(nullptr), "BME280 not found");
+#endif
   delay(1000);  // wait for sensors to stabalize
 } // setup
 
 void loop() {
-  if (!sg.loop()) return;
-  sg.ledOn(BUILTIN_LED);
-  String ip = WiFi.localIP().toString();
-  int heap = ESP.getFreeHeap();
-  time_t now = time(nullptr);
-  String t = ctime(&now);
-  t.trim(); // ctime returns extra whitespace
+  time_t now = sg.loop();
+  if (!now) return;
+  sg.ledOn();
+  String t = sg.localTime(now);
   String u = sg.upTime(now);
-
-  float temp, humid, pressure;
-  bme.read(pressure, temp, humid);
-  temp = temp * 1.8F + 32.0F;
-  pressure = pressure * 0.02953;
-
-  int range = getDist();
-
-  Serial.printf("%s: %s, %d°F, %d%%RH, %d.%02d inHg, %4d mm, %s uptime, %d heap \r", \
-                ip.c_str(), t.c_str(), round(temp), round(humid), int(pressure / 100), \
-                int(pressure) % 100, range, u.c_str(), heap);
-
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  root["app"] = HOST;
-  root["temp"] = round(temp);
-  root["humid"] = round(humid);
-  root["pressure"] = (float)int(pressure / 100) + (float)(int(pressure) % 100) / 100;
-  root["range"] = range;
-  root["ip"] = ip;
-  root["time"] = t;
-  root["timestamp"] = now;
-  root["uptime"] = int(now - sg.UPTIME);
-  root["freeheap"] = heap;
-  root.printTo(t = "");
-  sg.mqttPublish("data", t);
-  sg.ledOff(BUILTIN_LED);
+#if defined (sgDHT)
+  if (!sg.readDHT(&dht)) return;
+#elif defined (sgHDC)
+  if (!sg.readHDC(&hdc)) return;
+#elif defined (sgBME)
+  if (!sg.readBME(&bme)) return;
+#endif
+#ifdef sgRANGE
+  if (!sg.getDist(TRIG, ECHO)) return;
+#endif
+  Serial.printf("%s, %d°F, %d%%RH, %d.%02d inHg, %4d mm, %s uptime, %d heap \r", \
+                t.c_str(), round(sg.temp), round(sg.humid), sg.range, u.c_str(), sg.heap);
+  sg.pubJSON(now);
+  sg.ledOff();
 } // loop
 

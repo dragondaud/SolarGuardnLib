@@ -1,13 +1,13 @@
 /*
-	SolarGuardn library
+	SolarGuardn Arduino Library
 	copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
 	distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
 #include "SolarGuardn.h"
 
-SolarGuardn::SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, unsigned int port, const char* topic, const char* user, const char* pass, const char* key, Stream * out, PubSubClient & mqtt) : _out(out) {
-	_hostname = String(hostname);
+SolarGuardn::SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, uint16_t port, const char* topic, const char* user, const char* pass, const char* gMapsKey, Stream * out, PubSubClient & mqtt) : _out(out) {
+	_appName = hostname;
 	_wifi_ssid = wifi_ssid;
 	_wifi_pass = wifi_pass;
 	_mqttServer = server;
@@ -15,23 +15,26 @@ SolarGuardn::SolarGuardn(const char* hostname, const char* wifi_ssid, const char
 	_mqttTopic = topic;
 	_mqttUser = user;
 	_mqttPass = pass;
-	_gMapsKey = key;
+	_gMapsKey = gMapsKey;
 	_out = out;
 	_mqtt = mqtt;
+	_ledPin = BUILTIN_LED;
+	_tUnit = BME280::TempUnit_Fahrenheit;
+	_pUnit = BME280::PresUnit_inHg;
 }
 
 void SolarGuardn::setup() {
 	while (!_out);		// wait for stream to open
 	delay(100);			// ... and settle
-	flushIn();
+	flushIn();			// purge input buffer
 	_out->println();
 	_out->print("setup: WiFi connecting to ");
 	_out->print(_wifi_ssid);
 	_out->print("...");
-	WiFi.persistent(false);
+	WiFi.persistent(false);	// do not re-save WiFi params every boot
 	WiFi.mode(WIFI_STA);
 	String t = WiFi.macAddress();
-	_hostname += "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
+	_hostname = String(_appName) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
 	WiFi.hostname(_hostname);
 	WiFi.begin(_wifi_ssid, _wifi_pass);
 	while (WiFi.status() != WL_CONNECTED) {
@@ -39,43 +42,46 @@ void SolarGuardn::setup() {
 		delay(500);
 	}
 	_out->println(" OK");
-
+	_wifip = WiFi.localIP();
 	if (location == "") {
 		location = getIPlocation();
 	} else {
 		getIPlocation();
-		location = getLocation(location, _gMapsKey);
+		location = getLocation(location);
 	}
 	setNTP();
-
-	ArduinoOTA.setHostname(_hostname.c_str());
-	ArduinoOTA.onStart([this]() {
-		_out->println("\nOTA: Start");
-	} );
-	ArduinoOTA.onEnd([this]() {
-		_out->println("\nOTA: End");
-		delay(1000);
-		ESP.restart();
-	} );
-	ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
-		_out->print("OTA Progress: " + String((progress / (total / 100))) + " \r");
-	});
-	ArduinoOTA.onError([this](ota_error_t error) {
-		_out->print("\nError[" + String(error) + "]: ");
-		if (error == OTA_AUTH_ERROR) _out->println("Auth Failed");
-		else if (error == OTA_BEGIN_ERROR) _out->println("Begin Failed");
-		else if (error == OTA_CONNECT_ERROR) _out->println("Connect Failed");
-		else if (error == OTA_RECEIVE_ERROR) _out->println("Receive Failed");
-		else if (error == OTA_END_ERROR) _out->println("End Failed");
-		else _out->println("unknown error");
-		delay(5000);
-		ESP.restart();
-	});
-	ArduinoOTA.begin();
+	startOTA();
 	Wire.begin(SDA, SCL);
 	_mqtt.setServer(_mqttServer, _mqttPort);
 	mqttConnect();
 	UPTIME = time(nullptr);
+	outDiag();
+} // setup()
+
+time_t SolarGuardn::loop() {
+	while (WiFi.status() != WL_CONNECTED) {
+		WiFi.reconnect();
+		delay(1000);
+	}
+	checkIn();
+	ArduinoOTA.handle();
+	_mqtt.loop();
+	time_t now = time(nullptr);
+	heap = ESP.getFreeHeap();
+	if (now > _twoAM) {
+		_out->println();
+		setNTP();
+	}
+	if (millis() > _timer) {
+		_timer = millis() + BETWEEN;
+		return now;
+	} else {
+		delay(5000);
+		return false;
+	}
+} // loop
+
+void SolarGuardn::outDiag() {
 	_out->print(F("Last reset reason: "));
 	_out->println(ESP.getResetReason());
 	_out->print(F("WiFi Hostname: "));
@@ -92,17 +98,11 @@ void SolarGuardn::setup() {
 	_out->println(ESP.getFreeSketchSpace());
 	_out->print(F("ESP Flash Size: "));
 	_out->println(ESP.getFlashChipRealSize());
-} // setup()
+}
 
-bool SolarGuardn::loop() {
-	if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-		String t = "Invalid null address";
-		mqttPublish("debug", t);
-		_out->println(t);
-		delay(500);
-		ESP.restart();
-	}
-	if (_out->available() > 0) {	// check Stream input for commands
+void SolarGuardn::checkIn() {
+	// check _out Stream input for commands
+	if (_out->available() > 0) {
 		char inChar = _out->read();
 		flushIn();  // flush input after each command to prevent garbage DoS
 		switch (inChar) {
@@ -142,38 +142,59 @@ bool SolarGuardn::loop() {
 			break;
 		}
 	}
-	ArduinoOTA.handle();
-	_mqtt.loop();
-	if (millis() > _timer) {
-		_timer = millis() + 60000;
-		return true;
-	} else {
-		delay(5000);
-		return false;
-	}
-} // loop
+}
 
-void SolarGuardn::ledOn(int pin) {	// LED on
-	analogWrite(pin, 1);
+void SolarGuardn::startOTA() {
+	ArduinoOTA.onStart([this]() {
+		_out->println("\nOTA: Start");
+	} );
+	ArduinoOTA.onEnd([this]() {
+		_out->println("\nOTA: End");
+		delay(1000);
+		ESP.restart();
+	} );
+	ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
+		_out->print("OTA Progress: " + String((progress / (total / 100))) + " \r");
+	});
+	ArduinoOTA.onError([this](ota_error_t error) {
+		_out->print("\nError[" + String(error) + "]: ");
+		if (error == OTA_AUTH_ERROR) _out->println("Auth Failed");
+		else if (error == OTA_BEGIN_ERROR) _out->println("Begin Failed");
+		else if (error == OTA_CONNECT_ERROR) _out->println("Connect Failed");
+		else if (error == OTA_RECEIVE_ERROR) _out->println("Receive Failed");
+		else if (error == OTA_END_ERROR) _out->println("End Failed");
+		else _out->println("unknown error");
+		delay(5000);
+		ESP.restart();
+	});
+	ArduinoOTA.setHostname(_hostname.c_str());
+	ArduinoOTA.begin();
+} // startOTA
+
+void SolarGuardn::ledOn() {
+	analogWrite(_ledPin, 1);
 } // ledOn
 
-void SolarGuardn::ledOff(int pin) {	// PWM dim LED to off
-  for (int i = 23; i < 1023; i++) {
-    analogWrite(pin, i);
-    delay(2);
-  }
-  analogWrite(BUILTIN_LED, 0);
-  digitalWrite(BUILTIN_LED, HIGH);
+void SolarGuardn::ledOff() {
+	// PWM dim LED to off
+	for (int i = 23; i < 1023; i++) {
+		analogWrite(_ledPin, i);
+		delay(2);
+	}
+	analogWrite(_ledPin, 0);
+	digitalWrite(_ledPin, HIGH);
 } // ledOff
 
-void SolarGuardn::flushIn() { // flush Stream input buffer (not what Serial.flush() does)
+void SolarGuardn::flushIn() {
+	// flush Stream input buffer (not what Serial.flush() does)
 	while (_out->available()) {
 		_out->read();
 	}
 	yield();
 } // flushIn
 
-String SolarGuardn::UrlEncode(const String url) {  // escape non-alphanumerics in URL
+String SolarGuardn::UrlEncode(const String url) {
+	// escape non-alphanumerics in URL
 	String e;
 	for (int i = 0; i < url.length(); i++) {
 		char c = url.charAt(i);
@@ -190,7 +211,8 @@ String SolarGuardn::UrlEncode(const String url) {  // escape non-alphanumerics i
 	return e;
 } // UrlEncode
 
-String SolarGuardn::getIPlocation() {  // Using freegeoip.net to map public IP's location
+String SolarGuardn::getIPlocation() {
+	// Using freegeoip.net to map public IP's location
 	HTTPClient http;
 	String URL = "http://freegeoip.net/json/";
 	String loc;
@@ -225,10 +247,11 @@ String SolarGuardn::getIPlocation() {  // Using freegeoip.net to map public IP's
 	return loc;
 } // getIPlocation
 
-String SolarGuardn::getLocation(const String address, const char* key) { // using google maps API, return location for provided Postal Code
+String SolarGuardn::getLocation(const String address) {
+	// using google maps API, return location for provided Postal Code
 	HTTPClient http;
 	String URL = "https://maps.googleapis.com/maps/api/geocode/json?address="
-	+ UrlEncode(address) + "&key=" + String(key);
+	+ UrlEncode(address) + "&key=" + String(_gMapsKey);
 	String loc;
 	http.setIgnoreTLSVerifyFailure(true);   // https://github.com/esp8266/Arduino/pull/2821
 	http.setUserAgent(UserAgent);
@@ -236,11 +259,11 @@ String SolarGuardn::getLocation(const String address, const char* key) { // usin
 		int stat = http.GET();
 		if (stat > 0) {
 			if (stat == HTTP_CODE_OK) {
-				String payload = http.getString();
+				String payload = http.getString();	// http://arduinojson.org/assistant/
 				DynamicJsonBuffer jsonBuffer;
 				JsonObject& root = jsonBuffer.parseObject(payload);
 				if (root.success()) {
-					JsonObject& results = root["results"][0];           // http://arduinojson.org/assistant/
+					JsonObject& results = root["results"][0];
 					JsonObject& results_geometry = results["geometry"];
 					String address = results["formatted_address"];
 					String lat = results_geometry["location"]["lat"];
@@ -261,13 +284,14 @@ String SolarGuardn::getLocation(const String address, const char* key) { // usin
 	return loc;
 } // getLocation
 
-int SolarGuardn::getTimeZone(time_t now, String loc, const char* key) { // using google maps API, return TimeZone for provided timestamp
+int SolarGuardn::getTimeZone(const time_t now, String loc) {
+	// using google maps API, return TimeZone for provided timestamp
 	HTTPClient http;
 	int tz = false;
 	String URL = "https://maps.googleapis.com/maps/api/timezone/json?location="
-	+ UrlEncode(loc) + "&timestamp=" + String(now) + "&key=" + String(key);
+		+ UrlEncode(loc) + "&timestamp=" + String(now) + "&key=" + String(_gMapsKey);
 	String payload;
-	http.setIgnoreTLSVerifyFailure(true);   // https://github.com/esp8266/Arduino/pull/2821
+	http.setIgnoreTLSVerifyFailure(true);	// https://github.com/esp8266/Arduino/pull/2821
 	http.setUserAgent(UserAgent);
 	if (http.begin(URL, gMapsCrt)) {
 		int stat = http.GET();
@@ -277,7 +301,7 @@ int SolarGuardn::getTimeZone(time_t now, String loc, const char* key) { // using
 				DynamicJsonBuffer jsonBuffer;
 				JsonObject& root = jsonBuffer.parseObject(payload);
 				if (root.success()) {
-					tz = (int (root["rawOffset"]) + int (root["dstOffset"])) / 3600;  // combine Offset and dstOffset
+					tz = (int (root["rawOffset"]) + int (root["dstOffset"]));  // combine Offset and dstOffset
 					const char* tzname = root["timeZoneName"];
 					_out->printf("getTimeZone: %s (%d)\r\n", tzname, tz);
 				} else {
@@ -295,18 +319,19 @@ int SolarGuardn::getTimeZone(time_t now, String loc, const char* key) { // using
 	return tz;
 } // getTimeZone
 
-void SolarGuardn::setNTP() { // using location configure NTP with local timezone
-	int TZ = getTimeZone(time(nullptr), location, _gMapsKey);
+void SolarGuardn::setNTP() {
+	// using location configure NTP with local timezone
+	_TZ = getTimeZone(time(nullptr), location);
 	_out->print("setNTP: configure NTP ...");
-	configTime((TZ * 3600), 0, "pool.ntp.org", "time.nist.gov");
-	while (time(nullptr) < (30 * 365 * 24 * 60 * 60)) {         // wait for time to advance to this century
+	configTime(_TZ, 0, "pool.ntp.org", "time.nist.gov");
+	while (time(nullptr) < (30 * 365 * 24 * 60 * 60)) {
+		// wait for time to advance to this century
 		delay(1000);
 		_out->print(".");
 	}
 	delay(5000);
 	time_t now = time(nullptr);
-	String t = ctime(&now);
-	t.trim();
+	String t = localTime(now);
 	_out->println(t.substring(3));
 	struct tm * calendar;
 	calendar = localtime(&now);
@@ -314,14 +339,15 @@ void SolarGuardn::setNTP() { // using location configure NTP with local timezone
 	calendar->tm_hour = 2;
 	calendar->tm_min = 0;
 	calendar->tm_sec = 0;
-	twoAM = mktime(calendar);
-	t = ctime(&twoAM);
+	_twoAM = mktime(calendar);
+	t = ctime(&_twoAM);
 	t.trim();
 	_out->print("setNTP: next timezone check @ ");
 	_out->println(t);
 } // setNTP
 
-String SolarGuardn::upTime(const time_t now) { // output UPTIME as d:h:MM:SS
+String SolarGuardn::upTime(const time_t now) {
+	// output UPTIME as d:h:MM:SS
 	long t = now - UPTIME;
 	long s = t % 60;
 	long m = (t / 60) % 60;
@@ -329,23 +355,24 @@ String SolarGuardn::upTime(const time_t now) { // output UPTIME as d:h:MM:SS
 	long d = (t / (60 * 60 * 24));
 	char ut[12];
 	snprintf(ut, sizeof(ut), "%d:%d:%02d:%02d", d, h, m, s);
-	if (now > twoAM) {
+	if (now > _twoAM) {
 		_out->println();
 		setNTP();
 	}
 	return String(ut);
 } // upTime()
 
-void SolarGuardn::mqttConnect() {  // connect MQTT and emit ESP info to debug channel
+String SolarGuardn::localTime(const time_t now) {
+	String t = ctime(&now);
+	t.trim(); // ctime returns extra whitespace
+	return t;
+} // localTime
+
+void SolarGuardn::mqttConnect() {
+	// connect MQTT and emit ESP info to debug channel
 	if (_mqtt.connect(_hostname.c_str(), _mqttUser, _mqttPass)) {
 		time_t now = time(nullptr);
-		String t = "{\"mqtt\": \"connect\", \"hostname\": \"" + _hostname + \
-			"\", \"wifi_ip\": \"" + WiFi.localIP().toString() + \
-			"\", \"public_ip\": \"" + _pubip.toString() + \
-			"\", \"reset_reason\": \"" + ESP.getResetReason() + \
-			"\", \"location\": \"" + location + "\", \"timestamp\": " + String(now) + \
-			", \"freeheap\": " + String(ESP.getFreeHeap()) + "}";
-		mqttPublish("debug", t);
+		pubDebug(now, "MQTT connect");
 	} else {
 		_out->print(_mqtt.state());
 		_out->println(" MQTT not connected.");
@@ -354,11 +381,142 @@ void SolarGuardn::mqttConnect() {  // connect MQTT and emit ESP info to debug ch
 	}
 } // mqttConnect
 
-void SolarGuardn::mqttPublish(String topic, String data) { // publish data to topic on mqtt, reconnect as needed
+void SolarGuardn::mqttPublish(String topic, String data) {
+	// publish data to topic on mqtt, reconnect as needed
 	if (!_mqtt.connected()) {
 		mqttConnect();
 	}
 	int r = _mqtt.publish((String(_mqttTopic) + "/" + _hostname + "/" + topic).c_str(), data.c_str());
 	if (!r) _out->println("MQTT error: " + String(r));
 } // mqttPublish
+
+bool SolarGuardn::readDHT(DHT *dht) {
+	// read temp and humidity from DHT22
+	temp = dht->readTemperature(true);
+	humid = dht->readHumidity();
+	if (isnan(temp) || isnan(humid)) {
+		return false;
+	} else {
+		return true;
+	}
+} // readDHT
+
+bool SolarGuardn::readHDC(ClosedCube_HDC1080 *hdc) {
+	// read temp and humidity from HDC1080
+	temp = (hdc->readTemperature() * 1.8F + 32.0F);
+	humid = hdc->readHumidity();
+	if (isnan(temp) || isnan(humid)) {
+		return false;
+	} else {
+		return true;
+	}
+} // readHDC
+
+bool SolarGuardn::readBME(BME280I2C *bme) {
+	// read temp, humidity and pressure from BME280
+	temp = bme->temp(_tUnit);
+	humid = bme->hum();
+	pressure = bme->pres(_pUnit);
+	if (isnan(temp) || isnan(humid) || isnan(pressure)) {
+		return false;
+	} else {
+		return true;
+	}
+} // readBME
+
+bool SolarGuardn::readTCS(Adafruit_TCS34725 *tcs) {
+	// read color from TCS light sensor
+	uint16_t r, g, b, c;
+	tcs->getRawData(&r, &g, &b, &c);
+	colorTemp = tcs->calculateColorTemperature(r, g, b);
+	lux = tcs->calculateLux(r, g, b);
+	if (isnan(colorTemp) || isnan(lux)) {
+		return false;
+	} else {
+		return true;
+	}
+} // readTCS
+
+uint16_t SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim) {
+	// read soil moisture using DFRobot SEN0193
+	int s = 0;
+	for (int i = 0; i < num; i++) {
+		int r = 0, x = 0;
+		do {
+			digitalWrite(pow, HIGH);       // power to moisture sensor
+			delay(tim);
+			r = 1023 - analogRead(pin);   // read analog value from moisture sensor (invert for capacitance sensor)
+			digitalWrite(pow, LOW);        // turn off moisture sensor
+			delay(tim * 1.2);
+			x++;
+			} while (((r < 200) || (r > 800)) && x < num);  // skip invalid values
+		s += r;
+	}
+	return round((float)s / (float)num);
+} // readMoisture
+
+bool SolarGuardn::getDist(uint16_t trig, uint16_t echo) {
+	// get distance to water from HC-SR04 sensor
+	int r = 0, c = 0;
+	for (int i = 0; i < 10; i++) {
+		digitalWrite(trig, HIGH);
+		delayMicroseconds(10);
+		digitalWrite(trig, LOW);
+		unsigned long p = pulseIn(echo, HIGH, 12000) * 0.34 / 2;
+		if (!p == 0 || p > 400) {
+			r += p;
+			c++;
+		}
+		delay(20);
+	}
+	if (!c) {
+		range = round(r / c);
+		return true;
+	} else {
+		range = 0;
+		return false;
+	}
+} // getDist
+
+void SolarGuardn::pubJSON(time_t now) {
+	// create and publish JSON buffer
+	String t = localTime(now);
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+	root["app"] = _appName;
+	if (temp > 0) root["temp"] = round(temp);
+	if (humid > 0) root["humid"] = round(humid);
+	if (pressure > 0) root["pressure"] = (float)int(pressure / 100) + (float)(int(pressure) % 100) / 100;
+	if (moist > 0) root["moist"] = moist;
+	if (lux > 0) {
+		root["colorTemp"] = colorTemp;
+		root["lux"] = lux;
+	}
+	root["ip"] = _wifip.toString();
+	root["time"] = t;
+	root["timestamp"] = now;
+	root["uptime"] = int(now - UPTIME);
+	root["freeheap"] = heap;
+	root.printTo(t = "");
+	mqttPublish("data", t);
+} // pubJSON
+
+void SolarGuardn::pubDebug(time_t now, String cmd) {
+	// create and publish JSON buffer of debug info
+	String t = localTime(now);
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+	root["app"] = _appName;
+	root["cmd"] = cmd;
+	root["reset"] = ESP.getResetReason();
+	root["location"] = location;
+	root["ip"] = _wifip.toString();
+	root["pubip"] = _pubip.toString();
+	root["time"] = t;
+	root["timestamp"] = now;
+	root["uptime"] = int(now - UPTIME);
+	root["freeheap"] = heap;
+	root.printTo(t = "");
+	mqttPublish("debug", t);
+} // pubDebug
 

@@ -1,6 +1,7 @@
 /*
-   SolarGuardn - TankGuard v0.8.00 PRE-RELEASE 06-Dec-2017
-   by David Denney <dragondaud@gmail.com>
+   SolarGuardn - TankGuard v0.8.2 PRE-RELEASE 12-Jan-2018
+   copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
+   distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 
    TankGuard monitors water level in tank and reports data using MQTT.
 
@@ -8,9 +9,6 @@
 
    Configures NTP and sets timezone automatically from geoIP location
    GeoIP location can be overridden by setting location string to postal code.
-
-   This code is offered "as is" with no warranty, expressed or implied, for any purpose,
-   and is released to the public domain, while all libraries retain their respective licenses.
 
    Master repository: https://github.com/dragondaud/SolarGuardn
 
