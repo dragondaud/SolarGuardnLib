@@ -1,6 +1,7 @@
 /*
-   SolarGuardn - TankGuard v0.8.1 PRE-RELEASE 27-Dec-2017
-   by David Denney <dragondaud@gmail.com>
+   SolarGuardn - TankGuard v0.8.2 PRE-RELEASE 12-Jan-2018
+   copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
+   distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
 #include "Config.h"
@@ -8,15 +9,19 @@
 void setup() {
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
-  sg.setup();
+  sg.setup(SDA, SCL);
   pinMode(BUILTIN_LED, OUTPUT);
+#ifdef sgRANGE
   pinMode(TRIG, OUTPUT);
   digitalWrite(TRIG, LOW);
   pinMode(ECHO, INPUT);
+#endif
+#ifdef sgBME
   pinMode(GND, OUTPUT);
   digitalWrite(GND, LOW);
   pinMode(POW, OUTPUT);
   digitalWrite(POW, HIGH);
+#endif
   delay(100);
   // only one temp/humid sensor can be used
 #if defined (sgDHT)
@@ -24,30 +29,41 @@ void setup() {
 #elif defined (sgHDC)
   hdc.begin(0x40);
 #elif defined (sgBME)
-  if (!bme.begin()) sg.pubDebug(time(nullptr), "BME280 not found");
+  if (!bme.begin()) sg.pubDebug("BME280 not found");
 #endif
   delay(1000);  // wait for sensors to stabalize
 } // setup
 
 void loop() {
-  time_t now = sg.loop();
-  if (!now) return;
+  if (!sg.handle()) return;
   sg.ledOn();
-  String t = sg.localTime(now);
-  String u = sg.upTime(now);
+  String t = sg.localTime();
+  String u = sg.upTime();
 #if defined (sgDHT)
-  if (!sg.readDHT(&dht)) return;
+  if (!sg.readDHT(dht)) return;
 #elif defined (sgHDC)
-  if (!sg.readHDC(&hdc)) return;
+  if (!sg.readHDC(hdc)) return;
 #elif defined (sgBME)
-  if (!sg.readBME(&bme)) return;
+  if (!sg.readBME(bme)) return;
 #endif
 #ifdef sgRANGE
   if (!sg.getDist(TRIG, ECHO)) return;
 #endif
-  Serial.printf("%s, %d°F, %d%%RH, %d.%02d inHg, %4d mm, %s uptime, %d heap \r", \
-                t.c_str(), round(sg.temp), round(sg.humid), sg.range, u.c_str(), sg.heap);
-  sg.pubJSON(now);
+  Serial.print(t);
+  Serial.print(", ");
+  Serial.print(round(sg.temp));
+  Serial.print("°F, ");
+  Serial.print(round(sg.humid));
+  Serial.print("%RH, ");
+  Serial.print(sg.pressure);
+  Serial.print(" inHg, ");
+  Serial.print(sg.range);
+  Serial.print(" mm, ");
+  Serial.print(u);
+  Serial.print(", ");
+  Serial.print(sg.heap);
+  Serial.print(" heap \r");
+  sg.pubJSON();
   sg.ledOff();
 } // loop
 

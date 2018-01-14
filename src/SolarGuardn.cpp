@@ -23,7 +23,7 @@ SolarGuardn::SolarGuardn(const char* hostname, const char* wifi_ssid, const char
 	_pUnit = BME280::PresUnit_inHg;
 }
 
-void SolarGuardn::setup() {
+void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 	while (!_out);		// wait for stream to open
 	delay(100);			// ... and settle
 	flushIn();			// purge input buffer
@@ -51,22 +51,23 @@ void SolarGuardn::setup() {
 	}
 	setNTP();
 	startOTA();
-	Wire.begin(SDA, SCL);
+	Wire.begin(data, clock);
 	_mqtt.setServer(_mqttServer, _mqttPort);
 	mqttConnect();
 	UPTIME = time(nullptr);
 	outDiag();
 } // setup()
 
-time_t SolarGuardn::loop() {
+bool SolarGuardn::handle() {
 	while (WiFi.status() != WL_CONNECTED) {
+		_out->println("loop: WiFi reconnect");
 		WiFi.reconnect();
 		delay(1000);
 	}
 	checkIn();
 	ArduinoOTA.handle();
 	_mqtt.loop();
-	time_t now = time(nullptr);
+	now = time(nullptr);
 	heap = ESP.getFreeHeap();
 	if (now > _twoAM) {
 		_out->println();
@@ -74,12 +75,12 @@ time_t SolarGuardn::loop() {
 	}
 	if (millis() > _timer) {
 		_timer = millis() + BETWEEN;
-		return now;
+		return true;
 	} else {
 		delay(5000);
 		return false;
 	}
-} // loop
+} // handle
 
 void SolarGuardn::outDiag() {
 	_out->print(F("Last reset reason: "));
@@ -169,6 +170,7 @@ void SolarGuardn::startOTA() {
 	});
 	ArduinoOTA.setHostname(_hostname.c_str());
 	ArduinoOTA.begin();
+	_out->println("OTA begin");
 } // startOTA
 
 void SolarGuardn::ledOn() {
@@ -330,8 +332,8 @@ void SolarGuardn::setNTP() {
 		_out->print(".");
 	}
 	delay(5000);
-	time_t now = time(nullptr);
-	String t = localTime(now);
+	now = time(nullptr);
+	String t = localTime();
 	_out->println(t.substring(3));
 	struct tm * calendar;
 	calendar = localtime(&now);
@@ -346,7 +348,7 @@ void SolarGuardn::setNTP() {
 	_out->println(t);
 } // setNTP
 
-String SolarGuardn::upTime(const time_t now) {
+String SolarGuardn::upTime() {
 	// output UPTIME as d:h:MM:SS
 	long t = now - UPTIME;
 	long s = t % 60;
@@ -362,7 +364,7 @@ String SolarGuardn::upTime(const time_t now) {
 	return String(ut);
 } // upTime()
 
-String SolarGuardn::localTime(const time_t now) {
+String SolarGuardn::localTime() {
 	String t = ctime(&now);
 	t.trim(); // ctime returns extra whitespace
 	return t;
@@ -371,11 +373,11 @@ String SolarGuardn::localTime(const time_t now) {
 void SolarGuardn::mqttConnect() {
 	// connect MQTT and emit ESP info to debug channel
 	if (_mqtt.connect(_hostname.c_str(), _mqttUser, _mqttPass)) {
-		time_t now = time(nullptr);
-		pubDebug(now, "MQTT connect");
+		_out->println("mqtt: reconnect");
+		pubDebug("MQTT connect");
 	} else {
-		_out->print(_mqtt.state());
-		_out->println(" MQTT not connected.");
+		_out->print("mqtt: not connected ");
+		_out->println(_mqtt.state());
 		delay(5000);
 		ESP.restart();
 	}
@@ -387,57 +389,60 @@ void SolarGuardn::mqttPublish(String topic, String data) {
 		mqttConnect();
 	}
 	int r = _mqtt.publish((String(_mqttTopic) + "/" + _hostname + "/" + topic).c_str(), data.c_str());
-	if (!r) _out->println("MQTT error: " + String(r));
+	if (!r) _out->println("mqtt: error: " + String(r));
 } // mqttPublish
 
-bool SolarGuardn::readDHT(DHT *dht) {
+bool SolarGuardn::readDHT(DHT & dht) {
 	// read temp and humidity from DHT22
-	temp = dht->readTemperature(true);
-	humid = dht->readHumidity();
+	temp = dht.readTemperature(true);
+	humid = dht.readHumidity();
 	if (isnan(temp) || isnan(humid)) {
+		_out->println("dht: bad reading");
 		return false;
 	} else {
 		return true;
 	}
 } // readDHT
 
-bool SolarGuardn::readHDC(ClosedCube_HDC1080 *hdc) {
+bool SolarGuardn::readHDC(ClosedCube_HDC1080 & hdc) {
 	// read temp and humidity from HDC1080
-	temp = (hdc->readTemperature() * 1.8F + 32.0F);
-	humid = hdc->readHumidity();
+	temp = hdc.readTemperature();
+	humid = hdc.readHumidity();
 	if (isnan(temp) || isnan(humid)) {
+		_out->println("hdc: bad reading");
 		return false;
 	} else {
+		temp = temp * 1.8F + 32.0F;
 		return true;
 	}
 } // readHDC
 
-bool SolarGuardn::readBME(BME280I2C *bme) {
+bool SolarGuardn::readBME(BME280I2C & bme) {
 	// read temp, humidity and pressure from BME280
-	temp = bme->temp(_tUnit);
-	humid = bme->hum();
-	pressure = bme->pres(_pUnit);
+	bme.read(pressure, temp, humid, _tUnit, _pUnit);
 	if (isnan(temp) || isnan(humid) || isnan(pressure)) {
+		_out->println("bme: bad reading");
 		return false;
 	} else {
 		return true;
 	}
 } // readBME
 
-bool SolarGuardn::readTCS(Adafruit_TCS34725 *tcs) {
+bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 	// read color from TCS light sensor
 	uint16_t r, g, b, c;
-	tcs->getRawData(&r, &g, &b, &c);
-	colorTemp = tcs->calculateColorTemperature(r, g, b);
-	lux = tcs->calculateLux(r, g, b);
+	tcs.getRawData(&r, &g, &b, &c);
+	colorTemp = tcs.calculateColorTemperature(r, g, b);
+	lux = tcs.calculateLux(r, g, b);
 	if (isnan(colorTemp) || isnan(lux)) {
+		_out->println("bad light");
 		return false;
 	} else {
 		return true;
 	}
 } // readTCS
 
-uint16_t SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim) {
+bool SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim) {
 	// read soil moisture using DFRobot SEN0193
 	int s = 0;
 	for (int i = 0; i < num; i++) {
@@ -452,7 +457,13 @@ uint16_t SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uin
 			} while (((r < 200) || (r > 800)) && x < num);  // skip invalid values
 		s += r;
 	}
-	return round((float)s / (float)num);
+	moist = round((float)s / (float)num);
+	if (!moist) {
+		_out->println("moist: bad reading");
+		return false;
+	} else {
+		return true;
+	}
 } // readMoisture
 
 bool SolarGuardn::getDist(uint16_t trig, uint16_t echo) {
@@ -469,25 +480,28 @@ bool SolarGuardn::getDist(uint16_t trig, uint16_t echo) {
 		}
 		delay(20);
 	}
-	if (!c) {
-		range = round(r / c);
-		return true;
-	} else {
+	if (!c || !r) {
+		_out->println("range: invalid");
 		range = 0;
 		return false;
+	} else {
+		range = round((float)r / c);
+		return true;
 	}
 } // getDist
 
-void SolarGuardn::pubJSON(time_t now) {
+void SolarGuardn::pubJSON() {
 	// create and publish JSON buffer
-	String t = localTime(now);
+	String t = localTime();
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 	root["app"] = _appName;
 	if (temp > 0) root["temp"] = round(temp);
 	if (humid > 0) root["humid"] = round(humid);
-	if (pressure > 0) root["pressure"] = (float)int(pressure / 100) + (float)(int(pressure) % 100) / 100;
+	//if (pressure > 0) root["pressure"] = (float)int(pressure / 100) + (float)(int(pressure) % 100) / 100;
+	if (pressure > 0) root["pressure"] = (float)round(pressure * 100) / 100;
 	if (moist > 0) root["moist"] = moist;
+	if (range > 0) root["range"] = range;
 	if (lux > 0) {
 		root["colorTemp"] = colorTemp;
 		root["lux"] = lux;
@@ -501,9 +515,9 @@ void SolarGuardn::pubJSON(time_t now) {
 	mqttPublish("data", t);
 } // pubJSON
 
-void SolarGuardn::pubDebug(time_t now, String cmd) {
+void SolarGuardn::pubDebug(String cmd) {
 	// create and publish JSON buffer of debug info
-	String t = localTime(now);
+	String t = localTime();
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 	root["app"] = _appName;

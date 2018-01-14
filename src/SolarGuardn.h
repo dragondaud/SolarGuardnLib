@@ -41,29 +41,29 @@ class SolarGuardn {
 public:
 	SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, uint16_t port, const char* topic, const char* user, const char* pass, const char* gMapsKey, Stream * out, PubSubClient & mqtt);
 
-	void setup();
-	time_t loop();
+	void setup(uint16_t data, uint16_t clock);
+	bool handle();
 	void ledOn();
 	void ledOff();
 	void setNTP();
-	String upTime(const time_t now);
-	String localTime(const time_t now);
+	String upTime();
+	String localTime();
 	String getIPlocation();
 	String getLocation(const String address);
 	int getTimeZone(const time_t now, String loc);
 	void mqttConnect();
 	void mqttPublish(String topic, String data);
-	bool readDHT(DHT *dht);
-	bool readHDC(ClosedCube_HDC1080 *hdc);
-	bool readBME(BME280I2C *bme);
-	bool readTCS(Adafruit_TCS34725 *tcs);
-	uint16_t readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim);
+	bool readDHT(DHT & dht);
+	bool readHDC(ClosedCube_HDC1080 & hdc);
+	bool readBME(BME280I2C & bme);
+	bool readTCS(Adafruit_TCS34725 & tcs);
+	bool readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim);
 	bool getDist(uint16_t trig, uint16_t echo);
-	void pubJSON(time_t now);
-	void pubDebug(time_t now, String cmd);
+	void pubJSON();
+	void pubDebug(String cmd);
 
 	String location;
-	time_t UPTIME;
+	time_t UPTIME, now;
 	float temp, humid, pressure;
 	uint16_t colorTemp, lux, moist, range;
 	uint32_t heap;

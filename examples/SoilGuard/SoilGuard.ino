@@ -9,46 +9,64 @@
 void setup() {
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
-  sg.setup();
+  sg.setup(SDA, SCL);
+#ifdef sgBME
+  pinMode(GND, OUTPUT);
+  digitalWrite(GND, LOW);
+  pinMode(POW, OUTPUT);
+  digitalWrite(POW, HIGH);
+#endif
+  delay(100);
   // only one temp/humid sensor can be used
 #if defined (sgDHT)
   dht.begin();
 #elif defined (sgHDC)
   hdc.begin(0x40);
 #elif defined (sgBME)
-  if (!bme.begin()) sg.pubDebug(time(nullptr), "BME280 not found");
+  if (!bme.begin()) sg.pubDebug("BME280 not found");
 #endif
 #ifdef sgTCS
-  if (!tcs.begin()) sg.pubDebug(time(nullptr), "TCS34725 not found");
+  if (!tcs.begin()) sg.pubDebug("TCS34725 not found");
 #endif
   pinMode(BUILTIN_LED, OUTPUT);
   pinMode(MGND, OUTPUT);          // moisture sensor ground
   digitalWrite(MGND, LOW);
   pinMode(MPOW, OUTPUT);          // moisture sensor power
-  digitalWrite(MPOW, LOW);
+  digitalWrite(MPOW, LOW);        // initially off
   delay(1000);  // wait for sensors to stabalize
 } // setup
 
 void loop() {
-  time_t now = sg.loop();
-  if (!now) return;
+  if (!sg.handle()) return;
   sg.ledOn();
-  String t = sg.localTime(now);
-  String u = sg.upTime(now);
+  String t = sg.localTime();
+  String u = sg.upTime();
 #if defined (sgDHT)
-  if (!sg.readDHT(&dht)) return;
+  if (!sg.readDHT(dht)) return;
 #elif defined (sgHDC)
-  if (!sg.readHDC(&hdc)) return;
+  if (!sg.readHDC(hdc)) return;
 #elif defined (sgBME)
-  if (!sg.readBME(&bme)) return;
+  if (!sg.readBME(bme)) return;
 #endif
 #ifdef sgTCS
-  if (!sg.readTCS(&tcs)) return;
+  if (!sg.readTCS(tcs)) return;
 #endif
-  sg.moist = readMoisture(MOIST, MPOW, SNUM, STIM);
-  Serial.printf("%s, %d°F, %d%%RH, %d moisture, %s uptime, %d heap \r", \
-                t.c_str(), round(sg.temp), round(sg.humid), sg.moist, u.c_str(), sg.heap);
-  sg.pubJSON(now);
+  sg.moist = sg.readMoisture(MOIST, MPOW, SNUM, STIM);
+  Serial.print(t);
+  Serial.print(", ");
+  Serial.print(round(sg.temp));
+  Serial.print("°F, ");
+  Serial.print(round(sg.humid));
+  Serial.print("%RH, ");
+  Serial.print(sg.pressure);
+  Serial.print(" inHg, ");
+  Serial.print(sg.moist);
+  Serial.print(" moist, ");
+  Serial.print(u);
+  Serial.print(", ");
+  Serial.print(sg.heap);
+  Serial.print(" heap \r");
+  sg.pubJSON();
   sg.ledOff();
 } // loop
 
