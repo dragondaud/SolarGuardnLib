@@ -53,8 +53,6 @@ void loop() {
   Serial.print("°F, ");
   Serial.print(round(sg.humid));
   Serial.print("%RH, ");
-  Serial.print(sg.pressure);
-  Serial.print(" inHg, ");
   Serial.print(sg.colorTemp);
   Serial.print(" colorTemp, ");
   Serial.print(sg.lux);

@@ -37,7 +37,7 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 	_hostname = String(_appName) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
 	WiFi.hostname(_hostname);
 	WiFi.begin(_wifi_ssid, _wifi_pass);
-	while (WiFi.status() != WL_CONNECTED) {
+	while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
 		_out->print(".");
 		delay(500);
 	}
@@ -54,12 +54,12 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 	Wire.begin(data, clock);
 	_mqtt.setServer(_mqttServer, _mqttPort);
 	mqttConnect();
-	UPTIME = time(nullptr);
 	outDiag();
+	_upTime = time(nullptr);
 } // setup()
 
 bool SolarGuardn::handle() {
-	while (WiFi.status() != WL_CONNECTED) {
+	while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
 		_out->println("loop: WiFi reconnect");
 		WiFi.reconnect();
 		delay(1000);
@@ -67,9 +67,9 @@ bool SolarGuardn::handle() {
 	checkIn();
 	ArduinoOTA.handle();
 	_mqtt.loop();
-	now = time(nullptr);
+	_now = time(nullptr);
 	heap = ESP.getFreeHeap();
-	if (now > _twoAM) {
+	if (_now > _twoAM) {
 		_out->println();
 		setNTP();
 	}
@@ -286,12 +286,12 @@ String SolarGuardn::getLocation(const String address) {
 	return loc;
 } // getLocation
 
-int SolarGuardn::getTimeZone(const time_t now, String loc) {
+uint32_t SolarGuardn::getTimeZone(String loc) {
 	// using google maps API, return TimeZone for provided timestamp
 	HTTPClient http;
-	int tz = false;
+	uint32_t tz = false;
 	String URL = "https://maps.googleapis.com/maps/api/timezone/json?location="
-		+ UrlEncode(loc) + "&timestamp=" + String(now) + "&key=" + String(_gMapsKey);
+		+ UrlEncode(loc) + "&timestamp=" + String(_now) + "&key=" + String(_gMapsKey);
 	String payload;
 	http.setIgnoreTLSVerifyFailure(true);	// https://github.com/esp8266/Arduino/pull/2821
 	http.setUserAgent(UserAgent);
@@ -323,7 +323,7 @@ int SolarGuardn::getTimeZone(const time_t now, String loc) {
 
 void SolarGuardn::setNTP() {
 	// using location configure NTP with local timezone
-	_TZ = getTimeZone(time(nullptr), location);
+	_TZ = getTimeZone(location);
 	_out->print("setNTP: configure NTP ...");
 	configTime(_TZ, 0, "pool.ntp.org", "time.nist.gov");
 	while (time(nullptr) < (30 * 365 * 24 * 60 * 60)) {
@@ -331,12 +331,11 @@ void SolarGuardn::setNTP() {
 		delay(1000);
 		_out->print(".");
 	}
-	delay(5000);
-	now = time(nullptr);
+	_now = time(nullptr);
 	String t = localTime();
 	_out->println(t.substring(3));
 	struct tm * calendar;
-	calendar = localtime(&now);
+	calendar = localtime(&_now);
 	calendar->tm_mday++;
 	calendar->tm_hour = 2;
 	calendar->tm_min = 0;
@@ -349,15 +348,15 @@ void SolarGuardn::setNTP() {
 } // setNTP
 
 String SolarGuardn::upTime() {
-	// output UPTIME as d:h:MM:SS
-	long t = now - UPTIME;
+	// output _upTime as d:h:MM:SS
+	long t = _now - _upTime;
 	long s = t % 60;
 	long m = (t / 60) % 60;
 	long h = (t / (60 * 60)) % 24;
 	long d = (t / (60 * 60 * 24));
 	char ut[12];
 	snprintf(ut, sizeof(ut), "%d:%d:%02d:%02d", d, h, m, s);
-	if (now > _twoAM) {
+	if (_now > _twoAM) {
 		_out->println();
 		setNTP();
 	}
@@ -365,7 +364,7 @@ String SolarGuardn::upTime() {
 } // upTime()
 
 String SolarGuardn::localTime() {
-	String t = ctime(&now);
+	String t = ctime(&_now);
 	t.trim(); // ctime returns extra whitespace
 	return t;
 } // localTime
@@ -508,8 +507,8 @@ void SolarGuardn::pubJSON() {
 	}
 	root["ip"] = _wifip.toString();
 	root["time"] = t;
-	root["timestamp"] = now;
-	root["uptime"] = int(now - UPTIME);
+	root["timestamp"] = _now;
+	root["uptime"] = int(_now - _upTime);
 	root["freeheap"] = heap;
 	root.printTo(t = "");
 	mqttPublish("data", t);
@@ -527,8 +526,8 @@ void SolarGuardn::pubDebug(String cmd) {
 	root["ip"] = _wifip.toString();
 	root["pubip"] = _pubip.toString();
 	root["time"] = t;
-	root["timestamp"] = now;
-	root["uptime"] = int(now - UPTIME);
+	root["timestamp"] = _now;
+	root["uptime"] = int(_now - _upTime);
 	root["freeheap"] = heap;
 	root.printTo(t = "");
 	mqttPublish("debug", t);

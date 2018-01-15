@@ -50,7 +50,7 @@ public:
 	String localTime();
 	String getIPlocation();
 	String getLocation(const String address);
-	int getTimeZone(const time_t now, String loc);
+	uint32_t getTimeZone(String loc);
 	void mqttConnect();
 	void mqttPublish(String topic, String data);
 	bool readDHT(DHT & dht);
@@ -63,7 +63,6 @@ public:
 	void pubDebug(String cmd);
 
 	String location;
-	time_t UPTIME, now;
 	float temp, humid, pressure;
 	uint16_t colorTemp, lux, moist, range;
 	uint32_t heap;
@@ -78,9 +77,8 @@ private:
 	Stream * _out;
 	IPAddress _pubip, _wifip;
 	String _hostname;
-	time_t _twoAM;
-	int _TZ;
-	uint32_t _timer;
+	time_t _now, _upTime, _twoAM;
+	uint32_t _TZ, _timer;
 	uint16_t _ledPin;
 	const char* _appName;
 	const char* _wifi_ssid;
