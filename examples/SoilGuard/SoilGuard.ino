@@ -1,5 +1,5 @@
 /*
-   SolarGuardn - SoilGuard v0.8.2 PRE-RELEASE 12-Jan-2018
+   SolarGuardn - SoilGuard v0.8.2 PRE-RELEASE 17-Jan-2018
    copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
@@ -52,20 +52,21 @@ void loop() {
   if (!sg.readTCS(tcs)) return;
 #endif
   sg.moist = sg.readMoisture(MOIST, MPOW, SNUM, STIM);
+  Serial.print("\033[A\r\033[K");
+  Serial.print(WiFi.hostname());
+  Serial.print(": ");
   Serial.print(t);
   Serial.print(", ");
   Serial.print(round(sg.temp));
   Serial.print("°F, ");
   Serial.print(round(sg.humid));
   Serial.print("%RH, ");
-  Serial.print(sg.pressure);
-  Serial.print(" inHg, ");
   Serial.print(sg.moist);
   Serial.print(" moist, ");
   Serial.print(u);
   Serial.print(", ");
-  Serial.print(sg.heap);
-  Serial.print(" heap \r");
+  Serial.print(ESP.getFreeHeap());
+  Serial.println(" heap");
   sg.pubJSON();
   sg.ledOff();
 } // loop
