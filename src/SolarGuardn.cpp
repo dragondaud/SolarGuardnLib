@@ -27,14 +27,16 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 	while (!_out);		// wait for stream to open
 	delay(100);			// ... and settle
 	flushIn();			// purge input buffer
+	WiFi.persistent(false);	// do not re-save WiFi params every boot
+	String t = WiFi.macAddress();
+	_hostname = String(_appName) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
 	_out->println();
+	_out->print("setup: starting ");
+	_out->println(_hostname);
 	_out->print("setup: WiFi connecting to ");
 	_out->print(_wifi_ssid);
 	_out->print("...");
-	WiFi.persistent(false);	// do not re-save WiFi params every boot
 	WiFi.mode(WIFI_STA);
-	String t = WiFi.macAddress();
-	_hostname = String(_appName) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
 	WiFi.hostname(_hostname);
 	WiFi.begin(_wifi_ssid, _wifi_pass);
 	while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
@@ -60,17 +62,16 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 
 bool SolarGuardn::handle() {
 	while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
-		_out->println("loop: WiFi reconnect");
-		WiFi.reconnect();
-		delay(1000);
+		_out->println("loop: WiFi invalid");
+		//WiFi.reconnect();
+		delay(5000);
+		ESP.restart();
 	}
 	checkIn();
 	ArduinoOTA.handle();
 	_mqtt.loop();
 	_now = time(nullptr);
-	heap = ESP.getFreeHeap();
 	if (_now > _twoAM) {
-		_out->println();
 		setNTP();
 	}
 	if (millis() > _timer) {
@@ -170,7 +171,6 @@ void SolarGuardn::startOTA() {
 	});
 	ArduinoOTA.setHostname(_hostname.c_str());
 	ArduinoOTA.begin();
-	_out->println("OTA begin");
 } // startOTA
 
 void SolarGuardn::ledOn() {
@@ -253,7 +253,7 @@ String SolarGuardn::getLocation(const String address) {
 	// using google maps API, return location for provided Postal Code
 	HTTPClient http;
 	String URL = "https://maps.googleapis.com/maps/api/geocode/json?address="
-	+ UrlEncode(address) + "&key=" + String(_gMapsKey);
+					+ UrlEncode(address) + "&key=" + String(_gMapsKey);
 	String loc;
 	http.setIgnoreTLSVerifyFailure(true);   // https://github.com/esp8266/Arduino/pull/2821
 	http.setUserAgent(UserAgent);
@@ -357,7 +357,6 @@ String SolarGuardn::upTime() {
 	char ut[12];
 	snprintf(ut, sizeof(ut), "%d:%d:%02d:%02d", d, h, m, s);
 	if (_now > _twoAM) {
-		_out->println();
 		setNTP();
 	}
 	return String(ut);
@@ -372,7 +371,6 @@ String SolarGuardn::localTime() {
 void SolarGuardn::mqttConnect() {
 	// connect MQTT and emit ESP info to debug channel
 	if (_mqtt.connect(_hostname.c_str(), _mqttUser, _mqttPass)) {
-		_out->println("mqtt: reconnect");
 		pubDebug("MQTT connect");
 	} else {
 		_out->print("mqtt: not connected ");
@@ -509,7 +507,7 @@ void SolarGuardn::pubJSON() {
 	root["time"] = t;
 	root["timestamp"] = _now;
 	root["uptime"] = int(_now - _upTime);
-	root["freeheap"] = heap;
+	root["freeheap"] = ESP.getFreeHeap();
 	root.printTo(t = "");
 	mqttPublish("data", t);
 } // pubJSON
@@ -528,7 +526,7 @@ void SolarGuardn::pubDebug(String cmd) {
 	root["time"] = t;
 	root["timestamp"] = _now;
 	root["uptime"] = int(_now - _upTime);
-	root["freeheap"] = heap;
+	root["freeheap"] = ESP.getFreeHeap();
 	root.printTo(t = "");
 	mqttPublish("debug", t);
 } // pubDebug

@@ -65,7 +65,6 @@ public:
 	String location;
 	float temp, humid, pressure;
 	uint16_t colorTemp, lux, moist, range;
-	uint32_t heap;
 
 private:
 	void flushIn();
