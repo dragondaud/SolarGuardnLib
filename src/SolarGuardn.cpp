@@ -52,12 +52,12 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 		location = getLocation(location);
 	}
 	setNTP();
+	_upTime = time(nullptr);
 	startOTA();
 	Wire.begin(data, clock);
 	_mqtt.setServer(_mqttServer, _mqttPort);
 	mqttConnect();
 	outDiag();
-	_upTime = time(nullptr);
 } // setup()
 
 bool SolarGuardn::handle() {
@@ -71,7 +71,7 @@ bool SolarGuardn::handle() {
 	ArduinoOTA.handle();
 	_mqtt.loop();
 	_now = time(nullptr);
-	if (_now > _twoAM) {
+	if ((_now + _TZ) > _twoAM) {
 		setNTP();
 	}
 	if (millis() > _timer) {
@@ -325,17 +325,16 @@ void SolarGuardn::setNTP() {
 	// using location configure NTP with local timezone
 	_TZ = getTimeZone(location);
 	_out->print("setNTP: configure NTP ...");
-	configTime(_TZ, 0, "pool.ntp.org", "time.nist.gov");
+	configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 	while (time(nullptr) < (30 * 365 * 24 * 60 * 60)) {
 		// wait for time to advance to this century
 		delay(1000);
 		_out->print(".");
 	}
-	_now = time(nullptr);
 	String t = localTime();
 	_out->println(t.substring(3));
 	struct tm * calendar;
-	calendar = localtime(&_now);
+	calendar = localtime(&_now + _TZ);
 	calendar->tm_mday++;
 	calendar->tm_hour = 2;
 	calendar->tm_min = 0;
@@ -354,18 +353,21 @@ String SolarGuardn::upTime() {
 	long m = (t / 60) % 60;
 	long h = (t / (60 * 60)) % 24;
 	long d = (t / (60 * 60 * 24));
-	char ut[12];
-	snprintf(ut, sizeof(ut), "%d:%d:%02d:%02d", d, h, m, s);
-	if (_now > _twoAM) {
-		setNTP();
-	}
-	return String(ut);
+	char buf[12];
+	snprintf(buf, sizeof(buf), "%d:%d:%02d:%02d", d, h, m, s);
+	return String(buf);
 } // upTime()
 
 String SolarGuardn::localTime() {
-	String t = ctime(&_now);
-	t.trim(); // ctime returns extra whitespace
-	return t;
+	// output local time as MM-DD-YYYY HH:MM:SS
+	_now = time(nullptr);
+	time_t t = _now + _TZ;
+	struct tm * calendar = localtime(&t);
+	char buf[20];
+	snprintf(buf, sizeof(buf), "%02d-%02d-%04d %02d:%02d:%02d", 
+			calendar->tm_mon + 1, calendar->tm_mday, calendar->tm_year + 1900, 
+			calendar->tm_hour, calendar->tm_min, calendar->tm_sec);
+	return String(buf);
 } // localTime
 
 void SolarGuardn::mqttConnect() {
@@ -521,6 +523,7 @@ void SolarGuardn::pubDebug(String cmd) {
 	root["cmd"] = cmd;
 	root["reset"] = ESP.getResetReason();
 	root["location"] = location;
+	root["macaddr"] = WiFi.macAddress();
 	root["ip"] = _wifip.toString();
 	root["pubip"] = _pubip.toString();
 	root["time"] = t;

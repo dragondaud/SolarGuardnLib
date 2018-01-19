@@ -1,5 +1,5 @@
 /*
-   SolarGuardn - TankGuard v0.8.2 PRE-RELEASE 17-Jan-2018
+   SolarGuardn - TankGuard v0.8.2 PRE-RELEASE 19-Jan-2018
    copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
@@ -9,6 +9,7 @@
 void setup() {
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
+  //sg.location = "81007"; // over-ride geoIP
   sg.setup(SDA, SCL);
   pinMode(BUILTIN_LED, OUTPUT);
 #ifdef sgRANGE
