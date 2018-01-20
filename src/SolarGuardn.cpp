@@ -64,7 +64,7 @@ bool SolarGuardn::handle() {
 	while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
 		_out->println("loop: WiFi invalid");
 		//WiFi.reconnect();
-		delay(5000);
+		delay(1000);
 		ESP.restart();
 	}
 	checkIn();
@@ -72,6 +72,7 @@ bool SolarGuardn::handle() {
 	_mqtt.loop();
 	_now = time(nullptr);
 	if ((_now + _TZ) > _twoAM) {
+		pubDebug("TZ update");
 		setNTP();
 	}
 	if (millis() > _timer) {
@@ -84,21 +85,21 @@ bool SolarGuardn::handle() {
 } // handle
 
 void SolarGuardn::outDiag() {
-	_out->print(F("Last reset reason: "));
+	_out->print("Last reset reason: ");
 	_out->println(ESP.getResetReason());
-	_out->print(F("WiFi Hostname: "));
+	_out->print("WiFi Hostname: ");
 	_out->println(WiFi.hostname());
-	_out->print(F("WiFi IP addr: "));
+	_out->print("WiFi IP addr: ");
 	_out->println(WiFi.localIP());
-	_out->print(F("WiFi gw addr: "));
+	_out->print("WiFi gw addr: ");
 	_out->println(WiFi.gatewayIP());
-	_out->print(F("WiFi MAC addr: "));
+	_out->print("WiFi MAC addr: ");
 	_out->println(WiFi.macAddress());
-	_out->print(F("ESP Sketch size: "));
+	_out->print("ESP Sketch size: ");
 	_out->println(ESP.getSketchSize());
-	_out->print(F("ESP Flash free: "));
+	_out->print("ESP Flash free: ");
 	_out->println(ESP.getFreeSketchSpace());
-	_out->print(F("ESP Flash Size: "));
+	_out->print("ESP Flash Size: ");
 	_out->println(ESP.getFlashChipRealSize());
 }
 
@@ -129,9 +130,11 @@ void SolarGuardn::checkIn() {
 		case 'c':
 			SaveCrash.clear();
 			_out->println("\nCrash information cleared");
+			pubDebug("SaveCrash cleared");
 			break;
 		case 'r':
 			_out->println("\nRebooting...");
+			pubDebug("reboot");
 			delay(1000);
 			ESP.restart();
 			break;
@@ -166,7 +169,7 @@ void SolarGuardn::startOTA() {
 		else if (error == OTA_RECEIVE_ERROR) _out->println("Receive Failed");
 		else if (error == OTA_END_ERROR) _out->println("End Failed");
 		else _out->println("unknown error");
-		delay(5000);
+		delay(15000);
 		ESP.restart();
 	});
 	ArduinoOTA.setHostname(_hostname.c_str());
@@ -331,16 +334,16 @@ void SolarGuardn::setNTP() {
 		delay(1000);
 		_out->print(".");
 	}
-	String t = localTime();
-	_out->println(t.substring(3));
+	_out->println(localTime());
 	struct tm * calendar;
-	calendar = localtime(&_now + _TZ);
+	time_t now = _now + _TZ;
+	calendar = localtime(&now);
 	calendar->tm_mday++;
 	calendar->tm_hour = 2;
 	calendar->tm_min = 0;
 	calendar->tm_sec = 0;
 	_twoAM = mktime(calendar);
-	t = ctime(&_twoAM);
+	String t = ctime(&_twoAM);
 	t.trim();
 	_out->print("setNTP: next timezone check @ ");
 	_out->println(t);
@@ -348,7 +351,7 @@ void SolarGuardn::setNTP() {
 
 String SolarGuardn::upTime() {
 	// output _upTime as d:h:MM:SS
-	long t = _now - _upTime;
+	time_t t = _now - _upTime;
 	long s = t % 60;
 	long m = (t / 60) % 60;
 	long h = (t / (60 * 60)) % 24;
@@ -377,7 +380,7 @@ void SolarGuardn::mqttConnect() {
 	} else {
 		_out->print("mqtt: not connected ");
 		_out->println(_mqtt.state());
-		delay(5000);
+		delay(15000);
 		ESP.restart();
 	}
 } // mqttConnect
@@ -396,6 +399,7 @@ bool SolarGuardn::readDHT(DHT & dht) {
 	temp = dht.readTemperature(true);
 	humid = dht.readHumidity();
 	if (isnan(temp) || isnan(humid)) {
+		pubDebug("dht reading invalid");
 		_out->println("dht: bad reading");
 		return false;
 	} else {
@@ -408,6 +412,7 @@ bool SolarGuardn::readHDC(ClosedCube_HDC1080 & hdc) {
 	temp = hdc.readTemperature();
 	humid = hdc.readHumidity();
 	if (isnan(temp) || isnan(humid)) {
+		pubDebug("hdc reading invalid");
 		_out->println("hdc: bad reading");
 		return false;
 	} else {
@@ -420,6 +425,7 @@ bool SolarGuardn::readBME(BME280I2C & bme) {
 	// read temp, humidity and pressure from BME280
 	bme.read(pressure, temp, humid, _tUnit, _pUnit);
 	if (isnan(temp) || isnan(humid) || isnan(pressure)) {
+		pubDebug("bme reading invalid");
 		_out->println("bme: bad reading");
 		return false;
 	} else {
@@ -434,6 +440,7 @@ bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 	colorTemp = tcs.calculateColorTemperature(r, g, b);
 	lux = tcs.calculateLux(r, g, b);
 	if (isnan(colorTemp) || isnan(lux)) {
+		pubDebug("light invalid");
 		_out->println("bad light");
 		return false;
 	} else {
@@ -458,6 +465,7 @@ bool SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_
 	}
 	moist = round((float)s / (float)num);
 	if (!moist) {
+		pubDebug("moisture invalid");
 		_out->println("moist: bad reading");
 		return false;
 	} else {
@@ -480,6 +488,7 @@ bool SolarGuardn::getDist(uint16_t trig, uint16_t echo) {
 		delay(20);
 	}
 	if (!c || !r) {
+		pubDebug("range invalid");
 		_out->println("range: invalid");
 		range = 0;
 		return false;
@@ -507,7 +516,7 @@ void SolarGuardn::pubJSON() {
 	}
 	root["ip"] = _wifip.toString();
 	root["time"] = t;
-	root["timestamp"] = _now;
+	root["timestamp"] = int(_now);
 	root["uptime"] = int(_now - _upTime);
 	root["freeheap"] = ESP.getFreeHeap();
 	root.printTo(t = "");
@@ -527,9 +536,10 @@ void SolarGuardn::pubDebug(String cmd) {
 	root["ip"] = _wifip.toString();
 	root["pubip"] = _pubip.toString();
 	root["time"] = t;
-	root["timestamp"] = _now;
+	root["tz"] = int(_TZ);
+	root["timestamp"] = int(_now);
 	root["uptime"] = int(_now - _upTime);
-	root["freeheap"] = ESP.getFreeHeap();
+	root["freeheap"] = int(ESP.getFreeHeap());
 	root.printTo(t = "");
 	mqttPublish("debug", t);
 } // pubDebug
