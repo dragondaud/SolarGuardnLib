@@ -58,13 +58,17 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 	_mqtt.setServer(_mqttServer, _mqttPort);
 	_mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
 		// display incoming MQTT messages
+		payload[length] = NULL;
+		String cmd = String((char*)payload);
+		cmd.trim();
+		cmd.toLowerCase();
 		_out->print("mqtt: [");
 		_out->print(topic);
-		_out->print("] ");
-		_out->println(String((char*)payload));
+		_out->println("] " + cmd);
+		doCmd(cmd);
 	} );
-	mqttConnect();
 	outDiag();
+	mqttConnect();
 } // setup()
 
 bool SolarGuardn::handle() {
@@ -116,38 +120,24 @@ void SolarGuardn::checkIn() {
 		flushIn();  // flush input after each command to prevent garbage DoS
 		switch (inChar) {
 		case '0':
-			_out->println("\nAttempting to divide by zero ...");
-			int result, zero;
-			zero = 0;
-			result = 1 / zero;
-			_out->print("Result = ");
-			_out->println(result);
+			doCmd("zero");
 			break;
 		case 'e':
-			_out->println("\nAttempting to read through a pointer to no object ...");
-			int* nullPointer;
-			nullPointer = NULL;
-			_out->print(*nullPointer);
+			doCmd("null");
 			break;
 		case 'p':
-			_out->println();
-			SaveCrash.print();
+			doCmd("print");
 			break;
 		case 'c':
-			SaveCrash.clear();
-			_out->println("\nCrash information cleared");
-			pubDebug("SaveCrash cleared");
+			doCmd("clear");
 			break;
 		case 'r':
-			_out->println("\nRebooting...");
-			pubDebug("reboot");
-			delay(1000);
-			ESP.restart();
+			doCmd("reboot");
 			break;
 		default:
 			_out->println("p : print crash information");
 			_out->println("c : clear crash information");
-			_out->println("e : attempt to read through a pointer to no object");
+			_out->println("e : attempt to read through a null pointer");
 			_out->println("0 : attempt to divide by zero");
 			_out->println("r : restart esp");
 			_out->println(WiFi.hostname());
@@ -156,9 +146,41 @@ void SolarGuardn::checkIn() {
 	}
 }
 
+void SolarGuardn::doCmd(String cmd) {
+	if (cmd == "reboot") {
+		_out->println("cmd: Rebooting...");
+		pubDebug("reboot");
+		delay(1000);
+		ESP.restart();
+	} else if (cmd == "clear") {
+		SaveCrash.clear();
+		_out->println("cmd: Crash information cleared");
+		pubDebug("SaveCrash cleared");
+	} else if (cmd == "print") {
+		SaveCrash.print();
+	} else if (cmd == "zero") {
+		_out->println("cmd: Attempting to divide by zero ...");
+		pubDebug("divide by zero");
+		int result, zero;
+		zero = 0;
+		result = 1 / zero;
+		_out->print("Result = ");
+		_out->println(result);
+	} else if (cmd == "null") {
+		_out->println("cmd: Attempting to read through a pointer to no object ...");
+		pubDebug("read null pointer");
+		int* nullPointer;
+		nullPointer = NULL;
+		_out->print(*nullPointer);
+	} else {
+		_out->println("cmd: [bad] " + cmd);
+		pubDebug("[bad]" + cmd);
+	}
+}
+
 void SolarGuardn::startOTA() {
 	ArduinoOTA.onStart([this]() {
-		_out->println("\nOTA: Start");
+		_out->println("OTA: Start");
 		_mqtt.disconnect();
 	} );
 	ArduinoOTA.onEnd([this]() {
@@ -390,6 +412,8 @@ void SolarGuardn::mqttConnect() {
 		delay(15000);
 		ESP.restart();
 	}
+	String t = String(_mqttTopic) + "/" + _hostname + "/cmd";
+	_mqtt.subscribe(t.c_str());
 	pubDebug("MQTT connect");
 } // mqttConnect
 

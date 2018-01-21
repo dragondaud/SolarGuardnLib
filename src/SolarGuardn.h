@@ -74,6 +74,7 @@ private:
 	void startOTA();
 	void checkIn();
 	void outDiag();
+	void doCmd(String);
 
 	WiFiClient _mqttwifi;
 	PubSubClient _mqtt;
