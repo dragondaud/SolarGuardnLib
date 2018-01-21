@@ -110,6 +110,8 @@ void SolarGuardn::outDiag() {
 	_out->println(ESP.getFreeSketchSpace());
 	_out->print("Flash Size: ");
 	_out->println(ESP.getFlashChipRealSize());
+	_out->print("Crash dumps: ");
+	_out->println(SaveCrash.count());
 	_out->println(WiFi.hostname());
 }
 
