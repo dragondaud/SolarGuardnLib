@@ -37,9 +37,10 @@
 
 #define BETWEEN 60000
 
+
 class SolarGuardn {
 public:
-	SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, uint16_t port, const char* topic, const char* user, const char* pass, const char* gMapsKey, Stream * out, PubSubClient & mqtt);
+	SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, uint16_t port, const char* topic, const char* user, const char* pass, const char* gMapsKey, Stream * out);
 
 	void setup(uint16_t data, uint16_t clock);
 	bool handle();
@@ -50,9 +51,10 @@ public:
 	String localTime();
 	String getIPlocation();
 	String getLocation(const String address);
-	uint32_t getTimeZone(String loc);
+	long getTimeZone(String loc);
 	void mqttConnect();
 	void mqttPublish(String topic, String data);
+	void mqttCallback(char* topic, byte* payload, unsigned int length);
 	bool readDHT(DHT & dht);
 	bool readHDC(ClosedCube_HDC1080 & hdc);
 	bool readBME(BME280I2C & bme);
@@ -73,11 +75,14 @@ private:
 	void checkIn();
 	void outDiag();
 
+	WiFiClient _mqttwifi;
+	PubSubClient _mqtt;
 	Stream * _out;
 	IPAddress _pubip, _wifip;
 	String _hostname;
 	time_t _now, _upTime, _twoAM;
-	uint32_t _TZ, _timer;
+	long _TZ;
+	uint32_t _timer;
 	uint16_t _ledPin;
 	const char* _appName;
 	const char* _wifi_ssid;
@@ -88,7 +93,6 @@ private:
 	const char* _mqttUser;
 	const char* _mqttPass;
 	const char* _gMapsKey;
-	PubSubClient _mqtt;
 	BME280::TempUnit _tUnit;
 	BME280::PresUnit _pUnit;
 };

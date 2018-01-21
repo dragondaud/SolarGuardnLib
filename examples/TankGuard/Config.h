@@ -8,8 +8,8 @@
 #define MQTT_SERV "mqtt.local"
 #define MQTT_PORT 1883
 #define MQTT_TOPIC "SolarGuardn"
-#define MQTT_USER ""
-#define MQTT_PASS ""
+#define MQTT_USER NULL
+#define MQTT_PASS NULL
 #define gMapsKey "APIKEY"   // https://developers.google.com/maps/documentation/timezone/intro
 //#define sgBME    // BME280 temperature/humidity/pressure sensor
 //#define sgDHT    // DHT22 temperature/humidity sensor
@@ -18,9 +18,7 @@
 //#define sgRANGE  // HC-SR04 ultrasonic range finder
 #endif
 
-WiFiClient wificlient;
-PubSubClient mqtt(wificlient);
-SolarGuardn sg(HOST, WIFI_SSID, WIFI_PASS, MQTT_SERV, MQTT_PORT, MQTT_TOPIC, MQTT_USER, MQTT_PASS, gMapsKey, &Serial, mqtt);
+SolarGuardn sg(HOST, WIFI_SSID, WIFI_PASS, MQTT_SERV, MQTT_PORT, MQTT_TOPIC, MQTT_USER, MQTT_PASS, gMapsKey, &Serial);
 
 #define SCL D6    // I2C clock
 #define SDA D7    // I2C data

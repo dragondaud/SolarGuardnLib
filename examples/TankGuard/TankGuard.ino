@@ -1,5 +1,5 @@
 /*
-   SolarGuardn - TankGuard v0.8.2 PRE-RELEASE 19-Jan-2018
+   SolarGuardn - TankGuard v0.8.2 PRE-RELEASE 21-Jan-2018
    copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
@@ -55,16 +55,16 @@ void loop() {
   Serial.print(": ");
   Serial.print(t);
   Serial.print(", ");
-  Serial.print(round(sg.temp));
+  Serial.print(sg.temp, 2);
   Serial.print("°F, ");
-  Serial.print(round(sg.humid));
+  Serial.print(sg.humid, 2);
   Serial.print("%RH, ");
   Serial.print(sg.pressure, 2);
   Serial.print(" inHg, ");
   Serial.print(sg.range);
   Serial.print(" mm, ");
   Serial.print(u);
-  Serial.print(", ");
+  Serial.print(" uptime, ");
   Serial.print(ESP.getFreeHeap());
   Serial.println(" heap");
   sg.pubJSON();
