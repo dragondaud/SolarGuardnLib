@@ -42,6 +42,9 @@ void loop() {
   sg.ledOn();
   String t = sg.localTime();
   String u = sg.upTime();
+#ifdef MOIST
+  if (!sg.readMoisture(MOIST, MPOW, SNUM, STIM)) return;
+#endif
 #if defined (sgDHT)
   if (!sg.readDHT(dht)) return;
 #elif defined (sgHDC)
@@ -52,10 +55,6 @@ void loop() {
 #ifdef sgTCS
   if (!sg.readTCS(tcs)) return;
 #endif
-  sg.moist = sg.readMoisture(MOIST, MPOW, SNUM, STIM);
-  Serial.print("\033[A\r\033[K");
-  Serial.print(WiFi.hostname());
-  Serial.print(": ");
   Serial.print(t);
   Serial.print(", ");
   Serial.print(round(sg.temp));

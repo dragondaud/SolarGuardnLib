@@ -48,6 +48,6 @@ BME280I2C bme(BME280I2C::Settings(BME280::OSR_X4, BME280::OSR_X4, BME280::OSR_X1
 #define MOIST A0      // moisture sensor analog input
 #define MPOW  D1      // moisture sensor power
 #define MGND  D2      // moisture sensor ground
-#define STIM 180      // delay time between moisture samples
-#define SNUM 3        // number of samples to average
+#define STIM 120      // delay time between moisture samples
+#define SNUM 5        // number of samples to average
 

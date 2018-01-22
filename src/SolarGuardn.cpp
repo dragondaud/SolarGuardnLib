@@ -76,6 +76,8 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	} );
 	outDiag();
 	mqttConnect();
+	_out->print(WiFi.hostname());
+	_out->println(" ready");
 } // begin
 
 bool SolarGuardn::handle() {
@@ -122,7 +124,6 @@ void SolarGuardn::outDiag() {
 		_out->print("SAVED CRASH DUMPS: ");
 		_out->println(c);
 	}
-	_out->println(WiFi.hostname());
 } // outDiag
 
 void SolarGuardn::checkIn() {
@@ -439,6 +440,12 @@ void SolarGuardn::mqttPublish(String topic, String data) {
 	if (!r) _out->println("mqtt: error: " + String(r));
 } // mqttPublish
 
+bool SolarGuardn::reLoop() {
+	// force re-reading sensors
+	_timer = _now;
+	return false;
+}
+
 bool SolarGuardn::readDHT(DHT & dht) {
 	// read temp and humidity from DHT22
 	temp = dht.readTemperature(true);
@@ -446,7 +453,7 @@ bool SolarGuardn::readDHT(DHT & dht) {
 	if (isnan(temp) || isnan(humid)) {
 		pubDebug("dht reading invalid");
 		_out->println("dht: bad reading");
-		return false;
+		return reLoop();
 	} else {
 		return true;
 	}
@@ -459,7 +466,7 @@ bool SolarGuardn::readHDC(ClosedCube_HDC1080 & hdc) {
 	if (isnan(temp) || isnan(humid)) {
 		pubDebug("hdc reading invalid");
 		_out->println("hdc: bad reading");
-		return false;
+		return reLoop();
 	} else {
 		temp = temp * 1.8F + 32.0F;
 		return true;
@@ -472,7 +479,7 @@ bool SolarGuardn::readBME(BME280I2C & bme) {
 	if (isnan(temp) || isnan(humid) || isnan(pressure)) {
 		pubDebug("bme reading invalid");
 		_out->println("bme: bad reading");
-		return false;
+		return reLoop();
 	} else {
 		return true;
 	}
@@ -487,7 +494,7 @@ bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 	if (isnan(colorTemp) || isnan(lux)) {
 		pubDebug("light invalid");
 		_out->println("bad light");
-		return false;
+		return reLoop();
 	} else {
 		return true;
 	}
@@ -512,7 +519,7 @@ bool SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_
 	if (!moist) {
 		pubDebug("moisture invalid");
 		_out->println("moist: bad reading");
-		return false;
+		return reLoop();
 	} else {
 		return true;
 	}
@@ -536,7 +543,7 @@ bool SolarGuardn::getDist(uint16_t trig, uint16_t echo) {
 		pubDebug("range invalid");
 		_out->println("range: invalid");
 		range = 0;
-		return false;
+		return reLoop();
 	} else {
 		range = round((float)r / (float)c);
 		return true;
@@ -572,11 +579,13 @@ void SolarGuardn::pubDebug(String cmd) {
 	// create and publish JSON buffer of debug info
 	String t = localTime();
 	float tz = _TZ / 3600;
+	int c = SaveCrash.count();
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 	root["app"] = _appName;
 	root["cmd"] = cmd;
-	root["reset"] = ESP.getResetReason();
+	root["lastreset"] = ESP.getResetReason();
+	if (c) root["savecrash"] = c;
 	root["location"] = location;
 	root["macaddr"] = WiFi.macAddress();
 	root["ip"] = _wifip.toString();

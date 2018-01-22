@@ -40,6 +40,9 @@ void loop() {
   sg.ledOn();
   String t = sg.localTime();
   String u = sg.upTime();
+#ifdef sgRANGE
+  if (!sg.getDist(TRIG, ECHO)) return;
+#endif
 #if defined (sgDHT)
   if (!sg.readDHT(dht)) return;
 #elif defined (sgHDC)
@@ -47,12 +50,6 @@ void loop() {
 #elif defined (sgBME)
   if (!sg.readBME(bme)) return;
 #endif
-#ifdef sgRANGE
-  if (!sg.getDist(TRIG, ECHO)) return;
-#endif
-  Serial.print("\033[A\r\033[K");
-  Serial.print(WiFi.hostname());
-  Serial.print(": ");
   Serial.print(t);
   Serial.print(", ");
   Serial.print(sg.temp, 2);

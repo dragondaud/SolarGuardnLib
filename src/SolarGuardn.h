@@ -75,6 +75,7 @@ private:
 	void checkIn();
 	void outDiag();
 	void doCmd(String);
+	bool reLoop();
 
 	WiFiClient _mqttwifi;
 	PubSubClient _mqtt;
