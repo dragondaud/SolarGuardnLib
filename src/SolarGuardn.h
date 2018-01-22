@@ -42,18 +42,12 @@ class SolarGuardn {
 public:
 	SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, uint16_t port, const char* topic, const char* user, const char* pass, const char* gMapsKey, Stream * out);
 
-	void setup(uint16_t data, uint16_t clock);
+	void begin(uint16_t data, uint16_t clock);
 	bool handle();
 	void ledOn();
 	void ledOff();
-	void setNTP();
 	String upTime();
 	String localTime();
-	String getIPlocation();
-	String getLocation(const String address);
-	long getTimeZone(String loc);
-	void mqttConnect();
-	void mqttPublish(String topic, String data);
 	void mqttCallback(char* topic, byte* payload, unsigned int length);
 	bool readDHT(DHT & dht);
 	bool readHDC(ClosedCube_HDC1080 & hdc);
@@ -70,8 +64,14 @@ public:
 
 private:
 	void flushIn();
+	void mqttConnect();
+	void mqttPublish(String topic, String data);
 	String UrlEncode(const String);
 	void startOTA();
+	String getIPlocation();
+	String getLocation(const String address);
+	long getTimeZone(String loc);
+	void setNTP();
 	void checkIn();
 	void outDiag();
 	void doCmd(String);

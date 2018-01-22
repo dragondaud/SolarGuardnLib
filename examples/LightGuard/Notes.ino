@@ -1,5 +1,5 @@
 /*
-   SolarGuardn - LightGuard v0.8.2 PRE-RELEASE 21-Jan-2018
+   SolarGuardn - LightGuard v0.8.2 PRE-RELEASE
    copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 

@@ -22,11 +22,10 @@ SolarGuardn::SolarGuardn(const char* hostname, const char* wifi_ssid, const char
 	_pUnit = BME280::PresUnit_inHg;
 }
 
-void SolarGuardn::setup(uint16_t data, uint16_t clock) {
+void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	while (!_out);		// wait for stream to open
 	delay(100);			// ... and settle
 	flushIn();			// purge input buffer
-	WiFi.persistent(false);	// do not re-save WiFi params every boot
 	String t = WiFi.macAddress();
 	_hostname = String(_appName) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
 	_out->println();
@@ -35,6 +34,7 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 	_out->print("setup: WiFi connecting to ");
 	_out->print(_wifi_ssid);
 	_out->print("...");
+	WiFi.persistent(false);	// do not re-save WiFi params every boot
 	WiFi.mode(WIFI_STA);
 	WiFi.setAutoReconnect(true);
 	WiFi.hostname(_hostname);
@@ -55,6 +55,13 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 	_upTime = time(nullptr);
 	startOTA();
 	Wire.begin(data, clock);
+	IPAddress mqttIP;
+	if (!WiFi.hostByName(_mqttServer, mqttIP)) {
+		_out->print("setup: mqtt server invalid ");
+		_out->println(_mqttServer);
+		delay(5000);
+		ESP.restart();
+	}
 	_mqtt.setServer(_mqttServer, _mqttPort);
 	_mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
 		// display incoming MQTT messages
@@ -69,7 +76,7 @@ void SolarGuardn::setup(uint16_t data, uint16_t clock) {
 	} );
 	outDiag();
 	mqttConnect();
-} // setup()
+} // begin
 
 bool SolarGuardn::handle() {
 	while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
@@ -110,10 +117,13 @@ void SolarGuardn::outDiag() {
 	_out->println(ESP.getFreeSketchSpace());
 	_out->print("Flash Size: ");
 	_out->println(ESP.getFlashChipRealSize());
-	_out->print("Crash dumps: ");
-	_out->println(SaveCrash.count());
+	int c = SaveCrash.count();
+	if (c) {
+		_out->print("SAVED CRASH DUMPS: ");
+		_out->println(c);
+	}
 	_out->println(WiFi.hostname());
-}
+} // outDiag
 
 void SolarGuardn::checkIn() {
 	// check _out Stream input for commands
@@ -146,7 +156,7 @@ void SolarGuardn::checkIn() {
 			break;
 		}
 	}
-}
+} // checkIn
 
 void SolarGuardn::doCmd(String cmd) {
 	if (cmd == "reboot") {
@@ -178,7 +188,7 @@ void SolarGuardn::doCmd(String cmd) {
 		_out->println("cmd: [bad] " + cmd);
 		pubDebug("[bad]" + cmd);
 	}
-}
+} // doCmd
 
 void SolarGuardn::startOTA() {
 	ArduinoOTA.onStart([this]() {
@@ -358,7 +368,9 @@ long SolarGuardn::getTimeZone(String loc) {
 
 void SolarGuardn::setNTP() {
 	// using location configure NTP with local timezone
-	_TZ = getTimeZone(location);
+	long tz = getTimeZone(location);
+	if (!tz) return;
+	_TZ = tz;
 	_out->print("setNTP: configure NTP ...");
 	configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 	while (time(nullptr) < (30 * 365 * 24 * 60 * 60)) {
@@ -408,7 +420,6 @@ String SolarGuardn::localTime() {
 void SolarGuardn::mqttConnect() {
 	// connect MQTT and emit ESP info to debug channel
 	if (!_mqtt.connect(_hostname.c_str(), _mqttUser, _mqttPass)) {
-		outDiag();
 		_out->print("mqtt: not connected ");
 		_out->println(_mqtt.state());
 		delay(15000);

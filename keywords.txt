@@ -1,21 +1,10 @@
 SolarGuardn		KEYWORD1
-setup			KEYWORD2
+begin			KEYWORD2
 handle			KEYWORD2
 ledOn			KEYWORD2
 ledOff			KEYWORD2
-setNTP			KEYWORD2
-UrlEncode		KEYWORD2
-getIPlocation	KEYWORD2
-getLocation		KEYWORD2
-getTimeZone		KEYWORD2
 upTime			KEYWORD2
 localTime		KEYWORD2
-mqttConnect		KEYWORD2
-mqttPublish		KEYWORD2
-gMapskey		LITERAL1
-UserAgent		LITERAL1
-now				LITERAL1
-_out			LITERAL1
 temp			LITERAL1
 humid			LITERAL1
 pressure		LITERAL1
@@ -23,4 +12,3 @@ lux				LITERAL1
 colorTemp		LITERAL1
 range			LITERAL1
 moist			LITERAL1
-heap			LITERAL1
