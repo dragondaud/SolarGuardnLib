@@ -44,11 +44,11 @@ void loop() {
   if (!sg.getDist(TRIG, ECHO)) return;
 #endif
 #if defined (sgDHT)
-  if (!sg.readDHT(dht)) return;
+  if (!sg.readTemp(dht)) return;
 #elif defined (sgHDC)
-  if (!sg.readHDC(hdc)) return;
+  if (!sg.readTemp(hdc)) return;
 #elif defined (sgBME)
-  if (!sg.readBME(bme)) return;
+  if (!sg.readTemp(bme)) return;
 #endif
   Serial.print(t);
   Serial.print(", ");

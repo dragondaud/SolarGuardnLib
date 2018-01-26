@@ -26,14 +26,14 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	while (!_out);		// wait for stream to open
 	delay(100);			// ... and settle
 	flushIn();			// purge input buffer
-	String t = WiFi.macAddress();
-	_hostname = String(_appName) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
 	_out->println();
 	_out->print("setup: starting ");
-	_out->println(_hostname);
+	_out->println(_appName);
 	_out->print("setup: WiFi connecting to ");
 	_out->print(_wifi_ssid);
 	_out->print("...");
+	String t = WiFi.macAddress();
+	_hostname = String(_appName) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
 	WiFi.persistent(false);	// do not re-save WiFi params every boot
 	WiFi.mode(WIFI_STA);
 	WiFi.setAutoReconnect(true);
@@ -81,9 +81,14 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 } // begin
 
 bool SolarGuardn::handle() {
-	while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
+	int c = 0;
+	while (WiFi.status() != WL_CONNECTED && c < 10) {
+		WiFi.reconnect();
+		delay(1000);
+		c++;
+	}
+	if (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
 		_out->println("loop: WiFi invalid");
-		//WiFi.reconnect();
 		delay(1000);
 		ESP.restart();
 	}
@@ -153,7 +158,6 @@ void SolarGuardn::checkIn() {
 			_out->println("e : attempt to read through a null pointer");
 			_out->println("0 : attempt to divide by zero");
 			_out->println("r : restart esp");
-			_out->println(WiFi.hostname());
 			break;
 		}
 	}
@@ -379,6 +383,7 @@ void SolarGuardn::setNTP() {
 		delay(1000);
 		_out->print(".");
 	}
+	delay(1000);
 	_out->println(localTime());
 	struct tm * calendar;
 	time_t now = _now + _TZ;
@@ -440,50 +445,66 @@ void SolarGuardn::mqttPublish(String topic, String data) {
 	if (!r) _out->println("mqtt: error: " + String(r));
 } // mqttPublish
 
-bool SolarGuardn::reLoop() {
-	// force re-reading sensors
-	_timer = _now;
+bool SolarGuardn::readTemp(DHT & dht) {
+	int c = 0;
+	while (c < 5) {
+		float t = dht.readTemperature(true);
+		float h = dht.readHumidity();
+		if (isnan(t) || isnan(h)) {
+			c++;
+			delay(200);
+		} else {
+			temp = t;
+			humid = h;
+			return true;
+		}
+	}
+	pubDebug("dht reading invalid");
+	_out->println("dht: bad reading");
+	_timer = millis();
 	return false;
 }
 
-bool SolarGuardn::readDHT(DHT & dht) {
-	// read temp and humidity from DHT22
-	temp = dht.readTemperature(true);
-	humid = dht.readHumidity();
-	if (isnan(temp) || isnan(humid)) {
-		pubDebug("dht reading invalid");
-		_out->println("dht: bad reading");
-		return reLoop();
-	} else {
-		return true;
+bool SolarGuardn::readTemp(ClosedCube_HDC1080 & hdc) {
+	int c = 0;
+	while (c < 5) {
+		float t = hdc.readTemperature();
+		float h = hdc.readHumidity();
+		if (isnan(t) || isnan(h)) {
+			c++;
+			delay(200);
+		} else {
+			temp = t * 1.8F + 32.0F;
+			humid = h;
+			return true;
+		}
 	}
-} // readDHT
+	pubDebug("hdc reading invalid");
+	_out->println("hdc: bad reading");
+	_timer = millis();
+	return false;
+}
 
-bool SolarGuardn::readHDC(ClosedCube_HDC1080 & hdc) {
-	// read temp and humidity from HDC1080
-	temp = hdc.readTemperature();
-	humid = hdc.readHumidity();
-	if (isnan(temp) || isnan(humid)) {
-		pubDebug("hdc reading invalid");
-		_out->println("hdc: bad reading");
-		return reLoop();
-	} else {
-		temp = temp * 1.8F + 32.0F;
-		return true;
+bool SolarGuardn::readTemp(BME280I2C & bme) {
+	int c = 0;
+	while (c < 5) {
+		float p, t, h;
+		bme.read(p, t, h, _tUnit, _pUnit);
+		if (isnan(t) || isnan(h) || isnan(p)) {
+			c++;
+			delay(200);
+		} else {
+			temp = t;
+			humid = h;
+			pressure = p;
+			return true;
+		}
 	}
-} // readHDC
-
-bool SolarGuardn::readBME(BME280I2C & bme) {
-	// read temp, humidity and pressure from BME280
-	bme.read(pressure, temp, humid, _tUnit, _pUnit);
-	if (isnan(temp) || isnan(humid) || isnan(pressure)) {
-		pubDebug("bme reading invalid");
-		_out->println("bme: bad reading");
-		return reLoop();
-	} else {
-		return true;
-	}
-} // readBME
+	pubDebug("bme reading invalid");
+	_out->println("bme: bad reading");
+	_timer = millis();
+	return false;
+}
 
 bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 	// read color from TCS light sensor
@@ -494,7 +515,8 @@ bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 	if (isnan(colorTemp) || isnan(lux)) {
 		pubDebug("light invalid");
 		_out->println("bad light");
-		return reLoop();
+		_timer = millis();
+		return false;
 	} else {
 		return true;
 	}
@@ -519,7 +541,8 @@ bool SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_
 	if (!moist) {
 		pubDebug("moisture invalid");
 		_out->println("moist: bad reading");
-		return reLoop();
+		_timer = millis();
+		return false;
 	} else {
 		return true;
 	}
@@ -543,7 +566,8 @@ bool SolarGuardn::getDist(uint16_t trig, uint16_t echo) {
 		pubDebug("range invalid");
 		_out->println("range: invalid");
 		range = 0;
-		return reLoop();
+		_timer = millis();
+		return false;
 	} else {
 		range = round((float)r / (float)c);
 		return true;

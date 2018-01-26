@@ -46,11 +46,11 @@ void loop() {
   if (!sg.readMoisture(MOIST, MPOW, SNUM, STIM)) return;
 #endif
 #if defined (sgDHT)
-  if (!sg.readDHT(dht)) return;
+  if (!sg.readTemp(dht)) return;
 #elif defined (sgHDC)
-  if (!sg.readHDC(hdc)) return;
+  if (!sg.readTemp(hdc)) return;
 #elif defined (sgBME)
-  if (!sg.readBME(bme)) return;
+  if (!sg.readTemp(bme)) return;
 #endif
 #ifdef sgTCS
   if (!sg.readTCS(tcs)) return;

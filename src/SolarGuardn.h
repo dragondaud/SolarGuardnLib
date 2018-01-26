@@ -49,9 +49,9 @@ public:
 	String upTime();
 	String localTime();
 	void mqttCallback(char* topic, byte* payload, unsigned int length);
-	bool readDHT(DHT & dht);
-	bool readHDC(ClosedCube_HDC1080 & hdc);
-	bool readBME(BME280I2C & bme);
+	bool readTemp(DHT & dht);
+	bool readTemp(ClosedCube_HDC1080 & hdc);
+	bool readTemp(BME280I2C & bme);
 	bool readTCS(Adafruit_TCS34725 & tcs);
 	bool readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim);
 	bool getDist(uint16_t trig, uint16_t echo);
