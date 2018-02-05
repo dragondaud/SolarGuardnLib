@@ -22,6 +22,7 @@ void setup() {
   digitalWrite(GND, LOW);
   pinMode(POW, OUTPUT);
   digitalWrite(POW, HIGH);
+  delay(100);
   if (!bme.begin()) sg.pubDebug("BME280 not found");
 #endif
 #ifdef sgDHT

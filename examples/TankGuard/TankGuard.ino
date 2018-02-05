@@ -12,17 +12,13 @@ void setup() {
   //sg.location = "81007"; // over-ride geoIP
   sg.begin(SDA, SCL);
   pinMode(BUILTIN_LED, OUTPUT);
-#ifdef sgRANGE
-  pinMode(TRIG, OUTPUT);
-  digitalWrite(TRIG, LOW);
-  pinMode(ECHO, INPUT);
-#endif
   // only one temp/humid sensor can be used
 #ifdef sgBME
   pinMode(GND, OUTPUT);
   digitalWrite(GND, LOW);
   pinMode(POW, OUTPUT);
   digitalWrite(POW, HIGH);
+  delay(100);
   if (!bme.begin()) sg.pubDebug("BME280 not found");
 #endif
 #ifdef sgDHT
@@ -34,6 +30,11 @@ void setup() {
 #ifdef sgTCS
   if (!tcs.begin()) sg.pubDebug("TCS34725 not found");
 #endif
+#ifdef sgRANGE
+  pinMode(TRIG, OUTPUT);
+  digitalWrite(TRIG, LOW);
+  pinMode(ECHO, INPUT);
+#endif
   delay(1000);  // wait for sensors to stabalize
 } // setup
 
@@ -42,9 +43,6 @@ void loop() {
   sg.ledOn();
   String t = sg.localTime();
   String u = sg.upTime();
-#ifdef sgRANGE
-  if (!sg.getDist(TRIG, ECHO)) return;
-#endif
 #if defined (sgDHT)
   if (!sg.readTemp(dht)) return;
 #elif defined (sgHDC)
@@ -54,6 +52,9 @@ void loop() {
 #endif
 #ifdef sgTCS
   if (!sg.readTCS(tcs)) return;
+#endif
+#ifdef sgRANGE
+  if (!sg.getDist(TRIG, ECHO)) return;
 #endif
   Serial.print(t);
   Serial.print(", ");

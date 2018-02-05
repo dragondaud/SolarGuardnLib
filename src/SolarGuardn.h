@@ -40,12 +40,12 @@
 
 enum sg_sensors {
 	SG_INVALID = 0,
-	SG_BME = 1 << 0,
-	SG_DHT = 1 << 1,
-	SG_HDC = 1 << 2,
-	SG_LIGHT = 1 << 4,
-	SG_RANGE = 1 << 5,
-	SG_MOIST = 1 << 6
+	SG_BME = 1 << 0,	// 1
+	SG_DHT = 1 << 1,	// 2
+	SG_HDC = 1 << 2,	// 4
+	SG_LIGHT = 1 << 4,	// 16
+	SG_RANGE = 1 << 5,	// 32
+	SG_MOIST = 1 << 6	// 64
 };
 
 class SolarGuardn {
