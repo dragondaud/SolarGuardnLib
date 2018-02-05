@@ -7,7 +7,7 @@
 #ifndef SolarGuardn_h
 #define SolarGuardn_h
 
-#define VERSION "0.8.2"
+#define VERSION "0.8.3"
 
 #include "Arduino.h"
 #include "Stream.h"
@@ -33,14 +33,29 @@
 #define UserAgent	"SolarGuardn/1.0 (Arduino ESP8266)"
 
 // openssl s_client -connect maps.googleapis.com:443 | openssl x509 -fingerprint -noout
-#define gMapsCrt	"‎‎67:7B:99:A4:E5:A7:AE:E4:F0:92:01:EF:F5:58:B8:0B:49:CF:53:D4"
+#define gMapsCrt	"67:7B:99:A4:E5:A7:AE:E4:F0:92:01:EF:F5:58:B8:0B:49:CF:53:D4"
 
-#define BETWEEN 60000
+#define SG_BETWEEN 60000
+#define SG_RETRIES 3
 
+enum sg_sensors {
+	SG_INVALID = 0,
+	SG_BME = 1 << 0,
+	SG_DHT = 1 << 1,
+	SG_HDC = 1 << 2,
+	SG_LIGHT = 1 << 4,
+	SG_RANGE = 1 << 5,
+	SG_MOIST = 1 << 6
+};
 
 class SolarGuardn {
 public:
-	SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, uint16_t port, const char* topic, const char* user, const char* pass, const char* gMapsKey, Stream * out);
+	SolarGuardn(Stream * out,
+		char * hostname, char * wifi_ssid, char * wifi_pass,
+		char * mqtt_server, uint16_t mqtt_port,
+		char * mqtt_topic, char * mqtt_user, char * mqtt_pass,
+		char * gMapsKey, sg_sensors temp_sensor, sg_sensors sensor
+	);
 
 	void begin(uint16_t data, uint16_t clock);
 	bool handle();
@@ -86,17 +101,18 @@ private:
 	long _TZ;
 	uint32_t _timer;
 	uint16_t _ledPin;
-	const char* _appName;
+	const char* _app_name;
 	const char* _wifi_ssid;
 	const char* _wifi_pass;
-	const char* _mqttServer;
-	uint16_t _mqttPort;
-	const char* _mqttTopic;
-	const char* _mqttUser;
-	const char* _mqttPass;
+	const char* _mqtt_server;
+	uint16_t _mqtt_port;
+	const char* _mqtt_topic;
+	const char* _mqtt_user;
+	const char* _mqtt_pass;
 	const char* _gMapsKey;
 	BME280::TempUnit _tUnit;
 	BME280::PresUnit _pUnit;
+	uint16_t _sensors;
 };
 #endif
 

@@ -6,20 +6,26 @@
 
 #include "SolarGuardn.h"
 
-SolarGuardn::SolarGuardn(const char* hostname, const char* wifi_ssid, const char* wifi_pass, const char* server, uint16_t port, const char* topic, const char* user, const char* pass, const char* gMapsKey, Stream * out) : _out(out), _mqtt(_mqttwifi) {
-	_appName = hostname;
+SolarGuardn::SolarGuardn(Stream * out,
+		char * hostname, char * wifi_ssid, char * wifi_pass,
+		char * mqtt_server, uint16_t mqtt_port,
+		char * mqtt_topic, char * mqtt_user, char * mqtt_pass,
+		char * gMapsKey, sg_sensors temp_sensor, sg_sensors sensor
+	) : _out(out), _mqtt(_mqttwifi) {
+	_app_name = hostname;
 	_wifi_ssid = wifi_ssid;
 	_wifi_pass = wifi_pass;
-	_mqttServer = server;
-	_mqttPort = port;
-	_mqttTopic = topic;
-	_mqttUser = user;
-	_mqttPass = pass;
+	_mqtt_server = mqtt_server;
+	_mqtt_port = mqtt_port;
+	_mqtt_topic = mqtt_topic;
+	_mqtt_user = mqtt_user;
+	_mqtt_pass = mqtt_pass;
 	_gMapsKey = gMapsKey;
 	_out = out;
 	_ledPin = BUILTIN_LED;
 	_tUnit = BME280::TempUnit_Fahrenheit;
 	_pUnit = BME280::PresUnit_inHg;
+	_sensors = (temp_sensor | sensor);
 }
 
 void SolarGuardn::begin(uint16_t data, uint16_t clock) {
@@ -28,17 +34,18 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	flushIn();			// purge input buffer
 	_out->println();
 	_out->print("setup: starting ");
-	_out->println(_appName);
+	_out->println(_app_name);
 	_out->print("setup: WiFi connecting to ");
 	_out->print(_wifi_ssid);
 	_out->print("...");
 	String t = WiFi.macAddress();
-	_hostname = String(_appName) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
+	_hostname = String(_app_name) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
 	WiFi.persistent(false);	// do not re-save WiFi params every boot
 	WiFi.mode(WIFI_STA);
 	WiFi.setAutoReconnect(true);
 	WiFi.hostname(_hostname);
 	WiFi.begin(_wifi_ssid, _wifi_pass);
+	WiFi.waitForConnectResult();
 	while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
 		_out->print(".");
 		delay(500);
@@ -56,13 +63,13 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	startOTA();
 	Wire.begin(data, clock);
 	IPAddress mqttIP;
-	if (!WiFi.hostByName(_mqttServer, mqttIP)) {
+	if (!WiFi.hostByName(_mqtt_server, mqttIP)) {
 		_out->print("setup: mqtt server invalid ");
-		_out->println(_mqttServer);
+		_out->println(_mqtt_server);
 		delay(5000);
 		ESP.restart();
 	}
-	_mqtt.setServer(_mqttServer, _mqttPort);
+	_mqtt.setServer(_mqtt_server, _mqtt_port);
 	_mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
 		// display incoming MQTT messages
 		payload[length] = NULL;
@@ -101,7 +108,7 @@ bool SolarGuardn::handle() {
 		setNTP();
 	}
 	if (millis() > _timer) {
-		_timer = millis() + BETWEEN;
+		_timer = millis() + SG_BETWEEN;
 		return true;
 	} else {
 		delay(5000);
@@ -425,13 +432,13 @@ String SolarGuardn::localTime() {
 
 void SolarGuardn::mqttConnect() {
 	// connect MQTT and emit ESP info to debug channel
-	if (!_mqtt.connect(_hostname.c_str(), _mqttUser, _mqttPass)) {
+	if (!_mqtt.connect(_hostname.c_str(), _mqtt_user, _mqtt_pass)) {
 		_out->print("mqtt: not connected ");
 		_out->println(_mqtt.state());
 		delay(15000);
 		ESP.restart();
 	}
-	String t = String(_mqttTopic) + "/" + _hostname + "/cmd";
+	String t = String(_mqtt_topic) + "/" + _hostname + "/cmd";
 	_mqtt.subscribe(t.c_str());
 	pubDebug("MQTT connect");
 } // mqttConnect
@@ -441,15 +448,16 @@ void SolarGuardn::mqttPublish(String topic, String data) {
 	if (!_mqtt.connected()) {
 		mqttConnect();
 	}
-	int r = _mqtt.publish((String(_mqttTopic) + "/" + _hostname + "/" + topic).c_str(), data.c_str());
+	int r = _mqtt.publish((String(_mqtt_topic) + "/" + _hostname + "/" + topic).c_str(), data.c_str());
 	if (!r) _out->println("mqtt: error: " + String(r));
 } // mqttPublish
 
 bool SolarGuardn::readTemp(DHT & dht) {
 	int c = 0;
-	while (c < 5) {
-		float t = dht.readTemperature(true);
-		float h = dht.readHumidity();
+	float t, h;
+	while (c < SG_RETRIES) {
+		t = dht.readTemperature(true);
+		h = dht.readHumidity();
 		if (isnan(t) || isnan(h)) {
 			c++;
 			delay(200);
@@ -460,16 +468,21 @@ bool SolarGuardn::readTemp(DHT & dht) {
 		}
 	}
 	pubDebug("dht reading invalid");
-	_out->println("dht: bad reading");
+	_out->print("dht: bad reading, ");
+	_out->print(t);
+	_out->print(", ");
+	_out->print(h);
+	_out->println();
 	_timer = millis();
 	return false;
 }
 
 bool SolarGuardn::readTemp(ClosedCube_HDC1080 & hdc) {
 	int c = 0;
-	while (c < 5) {
-		float t = hdc.readTemperature();
-		float h = hdc.readHumidity();
+	float t, h;
+	while (c < SG_RETRIES) {
+		t = hdc.readTemperature();
+		h = hdc.readHumidity();
 		if (isnan(t) || isnan(h)) {
 			c++;
 			delay(200);
@@ -480,15 +493,19 @@ bool SolarGuardn::readTemp(ClosedCube_HDC1080 & hdc) {
 		}
 	}
 	pubDebug("hdc reading invalid");
-	_out->println("hdc: bad reading");
+	_out->print("hdc: bad reading, ");
+	_out->print(t);
+	_out->print(", ");
+	_out->print(h);
+	_out->println();
 	_timer = millis();
 	return false;
 }
 
 bool SolarGuardn::readTemp(BME280I2C & bme) {
 	int c = 0;
-	while (c < 5) {
-		float p, t, h;
+	float p, t, h;
+	while (c < SG_RETRIES) {
 		bme.read(p, t, h, _tUnit, _pUnit);
 		if (isnan(t) || isnan(h) || isnan(p)) {
 			c++;
@@ -501,7 +518,13 @@ bool SolarGuardn::readTemp(BME280I2C & bme) {
 		}
 	}
 	pubDebug("bme reading invalid");
-	_out->println("bme: bad reading");
+	_out->print("bme: bad reading, ");
+	_out->print(t);
+	_out->print(", ");
+	_out->print(h);
+	_out->print(", ");
+	_out->print(p);
+	_out->println();
 	_timer = millis();
 	return false;
 }
@@ -579,7 +602,7 @@ void SolarGuardn::pubJSON() {
 	String t = localTime();
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
-	root["app"] = _appName;
+	root["app"] = _app_name;
 	if (temp > 0) root["temp"] = round(temp);
 	if (humid > 0) root["humid"] = round(humid);
 	//if (pressure > 0) root["pressure"] = (float)int(pressure / 100) + (float)(int(pressure) % 100) / 100;
@@ -606,7 +629,9 @@ void SolarGuardn::pubDebug(String cmd) {
 	int c = SaveCrash.count();
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
-	root["app"] = _appName;
+	root["app"] = _app_name;
+	root["libver"] = VERSION;
+	root["sensor"] = _sensors;
 	root["cmd"] = cmd;
 	root["lastreset"] = ESP.getResetReason();
 	if (c) root["savecrash"] = c;

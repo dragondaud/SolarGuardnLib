@@ -12,3 +12,4 @@ lux				LITERAL1
 colorTemp		LITERAL1
 range			LITERAL1
 moist			LITERAL1
+sg_sensors		KEYWORD1

@@ -1,5 +1,5 @@
 /*
-   SolarGuardn - SoilGuard v0.8.2 PRE-RELEASE
+   SolarGuardn - SoilGuard v0.8.3 PRE-RELEASE
    copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
@@ -11,29 +11,28 @@ void setup() {
   //Serial.setDebugOutput(true);
   //sg.location = "81007"; // over-ride geoIP
   sg.begin(SDA, SCL);
-#ifdef sgBME
-  pinMode(GND, OUTPUT);
-  digitalWrite(GND, LOW);
-  pinMode(POW, OUTPUT);
-  digitalWrite(POW, HIGH);
-#endif
-  delay(100);
-  // only one temp/humid sensor can be used
-#if defined (sgDHT)
-  dht.begin();
-#elif defined (sgHDC)
-  hdc.begin(0x40);
-#elif defined (sgBME)
-  if (!bme.begin()) sg.pubDebug("BME280 not found");
-#endif
-#ifdef sgTCS
-  if (!tcs.begin()) sg.pubDebug("TCS34725 not found");
-#endif
   pinMode(BUILTIN_LED, OUTPUT);
   pinMode(MGND, OUTPUT);          // moisture sensor ground
   digitalWrite(MGND, LOW);
   pinMode(MPOW, OUTPUT);          // moisture sensor power
   digitalWrite(MPOW, LOW);        // initially off
+  // only one temp/humid sensor can be used
+#ifdef sgBME
+  pinMode(GND, OUTPUT);
+  digitalWrite(GND, LOW);
+  pinMode(POW, OUTPUT);
+  digitalWrite(POW, HIGH);
+  if (!bme.begin()) sg.pubDebug("BME280 not found");
+#endif
+#ifdef sgDHT
+  dht.begin();
+#endif
+#ifdef sgHDC
+  hdc.begin(0x40);
+#endif
+#ifdef sgTCS
+  if (!tcs.begin()) sg.pubDebug("TCS34725 not found");
+#endif
   delay(1000);  // wait for sensors to stabalize
 } // setup
 
