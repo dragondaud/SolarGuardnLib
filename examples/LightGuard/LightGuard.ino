@@ -11,7 +11,7 @@ void setup() {
   //Serial.setDebugOutput(true);
   //sg.location = "81007"; // over-ride geoIP
   sg.begin(SDA, SCL);
-  pinMode(BUILTIN_LED, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   // only one temp/humid sensor can be used
 #ifdef sgBME
   pinMode(GND, OUTPUT);

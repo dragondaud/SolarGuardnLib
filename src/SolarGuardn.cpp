@@ -22,7 +22,7 @@ SolarGuardn::SolarGuardn(Stream * out,
 	_mqtt_pass = mqtt_pass;
 	_gMapsKey = gMapsKey;
 	_out = out;
-	_ledPin = BUILTIN_LED;
+	_ledPin = LED_BUILTIN;
 	_tUnit = BME280::TempUnit_Fahrenheit;
 	_pUnit = BME280::PresUnit_inHg;
 	_sensors = (temp_sensor | sensor);
@@ -390,7 +390,7 @@ void SolarGuardn::setNTP() {
 		delay(1000);
 		_out->print(".");
 	}
-	delay(1000);
+	delay(1100);
 	_out->println(localTime());
 	struct tm * calendar;
 	time_t now = _now + _TZ;

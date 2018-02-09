@@ -11,7 +11,7 @@ void setup() {
   //Serial.setDebugOutput(true);
   //sg.location = "81007"; // over-ride geoIP
   sg.begin(SDA, SCL);
-  pinMode(BUILTIN_LED, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   pinMode(MGND, OUTPUT);          // moisture sensor ground
   digitalWrite(MGND, LOW);
   pinMode(MPOW, OUTPUT);          // moisture sensor power
