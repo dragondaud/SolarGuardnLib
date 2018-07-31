@@ -1,4 +1,4 @@
-# SolarGuardnLin
+# SolarGuardnLib
 ## v0.8.4 PRE-RELEASE 31-Jul-2018
 ### Copyright 2018 by David Denney <dragondaud@gmail.com>
 
