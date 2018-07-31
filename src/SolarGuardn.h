@@ -1,13 +1,13 @@
 /*
 	SolarGuardn Arduino Library
-	copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
+	copyright 2018 by David M Denney <dragondaud@gmail.com>
 	distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
 #ifndef SolarGuardn_h
 #define SolarGuardn_h
 
-#define VERSION "0.8.3"
+#define VERSION "0.8.4"
 
 #include "Arduino.h"
 #include "Stream.h"
@@ -32,9 +32,6 @@
 
 #define UserAgent	"SolarGuardn/1.0 (Arduino ESP8266)"
 
-// openssl s_client -connect maps.googleapis.com:443 | openssl x509 -fingerprint -noout
-#define gMapsCrt	"67:7B:99:A4:E5:A7:AE:E4:F0:92:01:EF:F5:58:B8:0B:49:CF:53:D4"
-
 #define SG_BETWEEN 60000
 #define SG_RETRIES 3
 
@@ -54,7 +51,7 @@ public:
 		char * hostname, char * wifi_ssid, char * wifi_pass,
 		char * mqtt_server, uint16_t mqtt_port,
 		char * mqtt_topic, char * mqtt_user, char * mqtt_pass,
-		char * gMapsKey, sg_sensors temp_sensor, sg_sensors sensor
+		char * tzKey, sg_sensors temp_sensor, sg_sensors sensor
 	);
 
 	void begin(uint16_t data, uint16_t clock);
@@ -73,7 +70,7 @@ public:
 	void pubJSON();
 	void pubDebug(String cmd);
 
-	String location;
+	String timezone;
 	float temp, humid, pressure;
 	uint16_t colorTemp, lux, moist, range;
 
@@ -84,9 +81,8 @@ private:
 	String UrlEncode(const String);
 	void startOTA();
 	String getIPlocation();
-	String getLocation(const String address);
-	long getTimeZone(String loc);
-	void setNTP();
+	long getOffset(const String);
+	void setNTP(const String);
 	void checkIn();
 	void outDiag();
 	void doCmd(String);
@@ -109,7 +105,7 @@ private:
 	const char* _mqtt_topic;
 	const char* _mqtt_user;
 	const char* _mqtt_pass;
-	const char* _gMapsKey;
+	const char* _tzKey;
 	BME280::TempUnit _tUnit;
 	BME280::PresUnit _pUnit;
 	uint16_t _sensors;

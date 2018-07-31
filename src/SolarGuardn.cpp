@@ -1,6 +1,6 @@
 /*
 	SolarGuardn Arduino Library
-	copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
+	copyright 2018 by David M Denney <dragondaud@gmail.com>
 	distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
@@ -10,7 +10,7 @@ SolarGuardn::SolarGuardn(Stream * out,
 		char * hostname, char * wifi_ssid, char * wifi_pass,
 		char * mqtt_server, uint16_t mqtt_port,
 		char * mqtt_topic, char * mqtt_user, char * mqtt_pass,
-		char * gMapsKey, sg_sensors temp_sensor, sg_sensors sensor
+		char * tzKey, sg_sensors temp_sensor, sg_sensors sensor
 	) : _out(out), _mqtt(_mqttwifi) {
 	_app_name = hostname;
 	_wifi_ssid = wifi_ssid;
@@ -20,7 +20,7 @@ SolarGuardn::SolarGuardn(Stream * out,
 	_mqtt_topic = mqtt_topic;
 	_mqtt_user = mqtt_user;
 	_mqtt_pass = mqtt_pass;
-	_gMapsKey = gMapsKey;
+	_tzKey = tzKey;
 	_out = out;
 	_ledPin = LED_BUILTIN;
 	_tUnit = BME280::TempUnit_Fahrenheit;
@@ -52,13 +52,9 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	}
 	_out->println(" OK");
 	_wifip = WiFi.localIP();
-	if (location == "") {
-		location = getIPlocation();
-	} else {
-		getIPlocation();
-		location = getLocation(location);
-	}
-	setNTP();
+	MDNS.begin(_hostname.c_str());
+	if (timezone == "") timezone = getIPlocation();
+	setNTP(timezone);
 	_upTime = time(nullptr);
 	startOTA();
 	Wire.begin(data, clock);
@@ -105,7 +101,7 @@ bool SolarGuardn::handle() {
 	_now = time(nullptr);
 	if ((_now + _TZ) > _twoAM) {
 		pubDebug("TZ update");
-		setNTP();
+		setNTP(timezone);
 	}
 	if (millis() > _timer) {
 		_timer = millis() + SG_BETWEEN;
@@ -273,7 +269,7 @@ String SolarGuardn::UrlEncode(const String url) {
 String SolarGuardn::getIPlocation() {
 	// Using freegeoip.net to map public IP's location
 	HTTPClient http;
-	String URL = "http://freegeoip.net/json/";
+	String URL = "http://ip-api.com/json";
 	String loc;
 	http.setUserAgent(UserAgent);
 	if (http.begin(URL)) {
@@ -284,13 +280,15 @@ String SolarGuardn::getIPlocation() {
 				DynamicJsonBuffer jsonBuffer;
 				JsonObject& root = jsonBuffer.parseObject(payload);
 				if (root.success()) {
-					String region = root["region_name"];
-					String country = root["country_code"];
-					String lat = root["latitude"];
-					String lng = root["longitude"];
-					loc = lat + "," + lng;
-					String ip = root["ip"];
+					String isp = root["isp"];
+					String region = root["regionName"];
+					String country = root["countryCode"];
+					String tz = root["timezone"];
+					_out->println("getIPlocation: " + isp + ", " + region + ", " + country + ", " + tz);
+					String ip = root["query"];
 					_pubip.fromString(ip);
+					http.end();
+					return tz;
 				} else {
 					_out->println("getIPlocation: JSON parse failed!");
 					_out->println(payload);
@@ -303,56 +301,17 @@ String SolarGuardn::getIPlocation() {
 		}
 	}
 	http.end();
-	return loc;
 } // getIPlocation
 
-String SolarGuardn::getLocation(const String address) {
-	// using google maps API, return location for provided Postal Code
-	HTTPClient http;
-	String URL = "https://maps.googleapis.com/maps/api/geocode/json?address="
-					+ UrlEncode(address) + "&key=" + String(_gMapsKey);
-	String loc;
-	http.setIgnoreTLSVerifyFailure(true);   // https://github.com/esp8266/Arduino/pull/2821
-	http.setUserAgent(UserAgent);
-	if (http.begin(URL, gMapsCrt)) {
-		int stat = http.GET();
-		if (stat > 0) {
-			if (stat == HTTP_CODE_OK) {
-				String payload = http.getString();	// http://arduinojson.org/assistant/
-				DynamicJsonBuffer jsonBuffer;
-				JsonObject& root = jsonBuffer.parseObject(payload);
-				if (root.success()) {
-					JsonObject& results = root["results"][0];
-					JsonObject& results_geometry = results["geometry"];
-					String address = results["formatted_address"];
-					String lat = results_geometry["location"]["lat"];
-					String lng = results_geometry["location"]["lng"];
-					loc = lat + "," + lng;
-				} else {
-					_out->println("getLocation: JSON parse failed!");
-					_out->println(payload);
-				}
-			} else {
-				_out->printf("getLocation: [HTTP] GET reply %d\r\n", stat);
-			}
-		} else {
-			_out->printf("getLocation: [HTTP] GET failed: %s\r\n", http.errorToString(stat).c_str());
-		}
-	}
-	http.end();
-	return loc;
-} // getLocation
-
-long SolarGuardn::getTimeZone(String loc) {
+long SolarGuardn::getOffset(const String timezone) {
 	// using google maps API, return TimeZone for provided timestamp
 	HTTPClient http;
-	long tz = false;
-	String URL = "https://maps.googleapis.com/maps/api/timezone/json?location="
-		+ UrlEncode(loc) + "&timestamp=" + String(_now) + "&key=" + String(_gMapsKey);
+	String URL = "http://api.timezonedb.com/v2/list-time-zone?key=" + String(_tzKey)
+				+ "&format=json&zone=" + UrlEncode(timezone);
 	String payload;
-	http.setIgnoreTLSVerifyFailure(true);	// https://github.com/esp8266/Arduino/pull/2821
+	long offset;
 	http.setUserAgent(UserAgent);
-	if (http.begin(URL, gMapsCrt)) {
+	if (http.begin(URL)) {
 		int stat = http.GET();
 		if (stat > 0) {
 			if (stat == HTTP_CODE_OK) {
@@ -360,27 +319,27 @@ long SolarGuardn::getTimeZone(String loc) {
 				DynamicJsonBuffer jsonBuffer;
 				JsonObject& root = jsonBuffer.parseObject(payload);
 				if (root.success()) {
-					tz = (int (root["rawOffset"]) + int (root["dstOffset"]));  // combine Offset and dstOffset
-					const char* tzname = root["timeZoneName"];
-					_out->printf("getTimeZone: %s (%d)\r\n", tzname, tz);
+					JsonObject& zones = root["zones"][0];
+					offset = zones["gmtOffset"];
+					_out->println("getOffset: " + timezone + "(" + String(offset) + ")");
 				} else {
-					_out->println("getTimeZone: JSON parse failed!");
+					_out->println("getOffset: JSON parse failed!");
 					_out->println(payload);
 				}
 			} else {
-				_out->printf("getTimeZone: [HTTP] GET reply %d\r\n", stat);
+				_out->printf("getOffset: [HTTP] GET reply %d\r\n", stat);
 			}
 		} else {
-			_out->printf("getTimeZone: [HTTP] GET failed: %s\r\n", http.errorToString(stat).c_str());
+			_out->printf("getOffset: [HTTP] GET failed: %s\r\n", http.errorToString(stat).c_str());
 		}
 	}
 	http.end();
-	return tz;
-} // getTimeZone
+	return offset;
+} // getOffset
 
-void SolarGuardn::setNTP() {
-	// using location configure NTP with local timezone
-	long tz = getTimeZone(location);
+void SolarGuardn::setNTP(const String timezone) {
+	// using timezone configure NTP with local timezone
+	long tz = getOffset(timezone);
 	if (!tz) return;
 	_TZ = tz;
 	_out->print("setNTP: configure NTP ...");
@@ -635,7 +594,7 @@ void SolarGuardn::pubDebug(String cmd) {
 	root["cmd"] = cmd;
 	root["lastreset"] = ESP.getResetReason();
 	if (c) root["savecrash"] = c;
-	root["location"] = location;
+	root["location"] = timezone;
 	root["macaddr"] = WiFi.macAddress();
 	root["ip"] = _wifip.toString();
 	root["pubip"] = _pubip.toString();

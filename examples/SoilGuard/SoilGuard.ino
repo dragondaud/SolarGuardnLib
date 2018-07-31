@@ -1,6 +1,6 @@
 /*
-   SolarGuardn - SoilGuard v0.8.3 PRE-RELEASE
-   copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
+   SolarGuardn - SoilGuard v0.8.4 PRE-RELEASE
+   copyright 2018 by David M Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
@@ -9,7 +9,6 @@
 void setup() {
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
-  //sg.location = "81007"; // over-ride geoIP
   sg.begin(SDA, SCL);
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(MGND, OUTPUT);          // moisture sensor ground

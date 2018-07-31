@@ -1,6 +1,6 @@
 /*
-   SolarGuardn - TankGuard v0.8.3 PRE-RELEASE
-   copyright 2017, 2018 by David M Denney <dragondaud@gmail.com>
+   SolarGuardn - TankGuard v0.8.4 PRE-RELEASE
+   copyright 2018 by David M Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 
    TankGuard monitors water level in tank and reports data using MQTT.

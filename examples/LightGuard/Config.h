@@ -10,7 +10,7 @@
 #define MQTT_TOPIC "SolarGuardn"
 #define MQTT_USER NULL
 #define MQTT_PASS NULL
-#define gMapsKey "APIKEY"   // https://developers.google.com/maps/documentation/timezone/intro
+#define tzKey "APIKEY"    // https://timezonedb.com/api
 //#define sgBME    // BME280 temperature/humidity/pressure sensor
 //#define sgDHT    // DHT22 temperature/humidity sensor
 //#define sgHDC    // HDC1080 temperature and humidity sensor
@@ -21,7 +21,7 @@
 SolarGuardn sg(
   &Serial, HOST, WIFI_SSID, WIFI_PASS,
   MQTT_SERV, MQTT_PORT, MQTT_TOPIC, MQTT_USER, MQTT_PASS,
-  gMapsKey, SG_HDC, SG_LIGHT
+  tzKey, SG_HDC, SG_LIGHT
 );
 
 #define SCL D6    // I2C clock
