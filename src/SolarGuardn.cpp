@@ -495,14 +495,35 @@ bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 	colorTemp = tcs.calculateColorTemperature(r, g, b);
 	lux = tcs.calculateLux(r, g, b);
 	if (isnan(colorTemp) || isnan(lux)) {
-		pubDebug("light invalid");
-		_out->println("bad light");
+		pubDebug("tcs invalid reading");
+		_out->println("tcs: bad reading");
 		_timer = millis();
 		return false;
 	} else {
 		return true;
 	}
 } // readTCS
+
+bool SolarGuardn::readCCS(Adafruit_CCS811 & ccs) {
+	int c = 0;
+	ccs.calculateTemperature();
+	while (c < SG_RETRIES) {
+		if (!ccs.available()) {
+			c++;
+			delay(200);
+		} else {
+			if (!ccs.readData()) {
+				eCO2 = ccs.geteCO2();
+				TVOC = ccs.getTVOC();
+				return true;
+			}
+		}
+	}
+	pubDebug("ccs invalid reading");
+	_out->println("ccs: bad reading");
+	_timer = millis();
+	return false;
+} // readCCS
 
 bool SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim) {
 	// read soil moisture using DFRobot SEN0193

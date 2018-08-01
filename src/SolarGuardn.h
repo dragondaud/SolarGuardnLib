@@ -22,6 +22,7 @@
 #include <DHT.h>					// https://github.com/adafruit/DHT-sensor-library
 #include "ClosedCube_HDC1080.h"		// https://github.com/closedcube/ClosedCube_HDC1080_Arduino
 #include "Adafruit_TCS34725.h"		// https://github.com/adafruit/Adafruit_TCS34725
+#include "Adafruit_CCS811.h"		// https://github.com/adafruit/Adafruit_CCS811
 
 #include <EspSaveCrash.h>			// https://github.com/krzychb/EspSaveCrash
 #undef SAVE_CRASH_SPACE_SIZE
@@ -32,8 +33,8 @@
 
 #define UserAgent	"SolarGuardn/1.0 (Arduino ESP8266)"
 
-#define SG_BETWEEN 60000
-#define SG_RETRIES 3
+#define SG_BETWEEN 60000			// time between sensor sampling
+#define SG_RETRIES 3				// number of retries on sampling
 
 enum sg_sensors {
 	SG_INVALID = 0,
@@ -42,7 +43,8 @@ enum sg_sensors {
 	SG_HDC = 1 << 2,	// 4
 	SG_LIGHT = 1 << 4,	// 16
 	SG_RANGE = 1 << 5,	// 32
-	SG_MOIST = 1 << 6	// 64
+	SG_MOIST = 1 << 6,	// 64
+	SG_AIR = 1 << 7		// 128
 };
 
 class SolarGuardn {
@@ -66,13 +68,14 @@ public:
 	bool readTemp(BME280I2C & bme);
 	bool readTCS(Adafruit_TCS34725 & tcs);
 	bool readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim);
+	bool readCCS(Adafruit_CCS811 & ccs);
 	bool getDist(uint16_t trig, uint16_t echo);
 	void pubJSON();
 	void pubDebug(String cmd);
 
 	String timezone;
 	float temp, humid, pressure;
-	uint16_t colorTemp, lux, moist, range;
+	uint16_t colorTemp, lux, moist, range, eCO2, TVOC;
 
 private:
 	void flushIn();
