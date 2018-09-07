@@ -13,18 +13,13 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   // only one temp/humid sensor can be used
 #ifdef sgBME
-  pinMode(GND, OUTPUT);
-  digitalWrite(GND, LOW);
-  pinMode(POW, OUTPUT);
-  digitalWrite(POW, HIGH);
-  delay(100);
   if (!bme.begin()) sg.pubDebug("BME280 not found");
 #endif
 #ifdef sgDHT
   dht.begin();
 #endif
-#ifdef sgHDC
-  hdc.begin(0x40);
+#ifdef sgASA
+  asa.begin();
 #endif
 #ifdef sgTCS
   if (!tcs.begin()) sg.pubDebug("TCS34725 not found");
@@ -44,8 +39,8 @@ void loop() {
   String u = sg.upTime();
 #if defined (sgDHT)
   if (!sg.readTemp(dht)) return;
-#elif defined (sgHDC)
-  if (!sg.readTemp(hdc)) return;
+#elif defined (sgASA)
+  if (!sg.readTemp(asa)) return;
 #elif defined (sgBME)
   if (!sg.readTemp(bme)) return;
 #endif
@@ -57,9 +52,9 @@ void loop() {
 #endif
   Serial.print(t);
   Serial.print(", ");
-  Serial.print(sg.temp, 2);
+  Serial.print(round(sg.temp));
   Serial.print("°F, ");
-  Serial.print(sg.humid, 2);
+  Serial.print(round(sg.humid));
   Serial.print("%RH, ");
   Serial.print(sg.pressure, 2);
   Serial.print(" inHg, ");
@@ -72,4 +67,3 @@ void loop() {
   sg.pubJSON();
   sg.ledOff();
 } // loop
-

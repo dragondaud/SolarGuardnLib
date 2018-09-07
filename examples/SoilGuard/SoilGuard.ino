@@ -10,25 +10,19 @@ void setup() {
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
   sg.begin(SDA, SCL);
-  pinMode(LED_BUILTIN, OUTPUT);
   pinMode(MGND, OUTPUT);          // moisture sensor ground
   digitalWrite(MGND, LOW);
   pinMode(MPOW, OUTPUT);          // moisture sensor power
   digitalWrite(MPOW, LOW);        // initially off
   // only one temp/humid sensor can be used
 #ifdef sgBME
-  pinMode(GND, OUTPUT);
-  digitalWrite(GND, LOW);
-  pinMode(POW, OUTPUT);
-  digitalWrite(POW, HIGH);
-  delay(100);
   if (!bme.begin()) sg.pubDebug("BME280 not found");
 #endif
 #ifdef sgDHT
   dht.begin();
 #endif
-#ifdef sgHDC
-  hdc.begin(0x40);
+#ifdef sgASA
+  asa.begin();
 #endif
 #ifdef sgTCS
   if (!tcs.begin()) sg.pubDebug("TCS34725 not found");
@@ -46,8 +40,8 @@ void loop() {
 #endif
 #if defined (sgDHT)
   if (!sg.readTemp(dht)) return;
-#elif defined (sgHDC)
-  if (!sg.readTemp(hdc)) return;
+#elif defined (sgASA)
+  if (!sg.readTemp(asa)) return;
 #elif defined (sgBME)
   if (!sg.readTemp(bme)) return;
 #endif
@@ -63,10 +57,9 @@ void loop() {
   Serial.print(sg.moist);
   Serial.print(" moist, ");
   Serial.print(u);
-  Serial.print(", ");
+  Serial.print(" uptime, ");
   Serial.print(ESP.getFreeHeap());
   Serial.println(" heap");
   sg.pubJSON();
   sg.ledOff();
 } // loop
-

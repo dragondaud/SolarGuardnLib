@@ -14,15 +14,17 @@
 #include <ESP8266WiFi.h>			// Arduino IDE ESP8266 2.4.0 from https://github.com/esp8266/Arduino
 #include <ESP8266HTTPClient.h>		// included
 #include <ESP8266mDNS.h>			// included
+#include <WiFiUdp.h> 				// included
 #include <ArduinoOTA.h>				// included
 #include <time.h>					// included
 #include <Wire.h>					// included
 #include <ArduinoJson.h>			// https://github.com/bblanchon/ArduinoJson/
 #include <BME280I2C.h>				// https://github.com/finitespace/BME280
 #include <DHT.h>					// https://github.com/adafruit/DHT-sensor-library
-#include "ClosedCube_HDC1080.h"		// https://github.com/closedcube/ClosedCube_HDC1080_Arduino
+#include "Adafruit_Sensor.h"		// https://github.com/adafruit/Adafruit_Sensor
 #include "Adafruit_TCS34725.h"		// https://github.com/adafruit/Adafruit_TCS34725
 #include "Adafruit_CCS811.h"		// https://github.com/adafruit/Adafruit_CCS811
+#include "Adafruit_AM2320.h"		// https://github.com/adafruit/Adafruit_AM2320
 
 #include <EspSaveCrash.h>			// https://github.com/krzychb/EspSaveCrash
 #undef SAVE_CRASH_SPACE_SIZE
@@ -40,7 +42,7 @@ enum sg_sensors {
 	SG_INVALID = 0,
 	SG_BME = 1 << 0,	// 1
 	SG_DHT = 1 << 1,	// 2
-	SG_HDC = 1 << 2,	// 4
+	SG_ASA = 1 << 2,	// 4
 	SG_LIGHT = 1 << 4,	// 16
 	SG_RANGE = 1 << 5,	// 32
 	SG_MOIST = 1 << 6,	// 64
@@ -53,7 +55,7 @@ public:
 		char * hostname, char * wifi_ssid, char * wifi_pass,
 		char * mqtt_server, uint16_t mqtt_port,
 		char * mqtt_topic, char * mqtt_user, char * mqtt_pass,
-		char * tzKey, sg_sensors temp_sensor, sg_sensors sensor
+		char * tzKey, uint16_t temp_sensor
 	);
 
 	void begin(uint16_t data, uint16_t clock);
@@ -64,7 +66,7 @@ public:
 	String localTime();
 	void mqttCallback(char* topic, byte* payload, unsigned int length);
 	bool readTemp(DHT & dht);
-	bool readTemp(ClosedCube_HDC1080 & hdc);
+	bool readTemp(Adafruit_AM2320 & asa);
 	bool readTemp(BME280I2C & bme);
 	bool readTCS(Adafruit_TCS34725 & tcs);
 	bool readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim);
@@ -74,7 +76,7 @@ public:
 	void pubDebug(String cmd);
 
 	String timezone;
-	float temp, humid, pressure;
+	float temp, humid, pressure, voltage;
 	uint16_t colorTemp, lux, moist, range, eCO2, TVOC;
 
 private:

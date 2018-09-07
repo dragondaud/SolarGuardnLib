@@ -13,5 +13,11 @@
    Designed to run on an NodeMCU board with a BME280, DHT22, or HDC1080 temperature/humidity sensor
    Board: NodeMCU 1.0, Freq: 80MHz, Flash: 4M (1M SPIFFS), Speed: 115200, Port: serial or OTA IP
 
+  DHT-Sensor-library modified as per issue 94
+  https://github.com/adafruit/DHT-sensor-library/issues/94
+  In version 1.3.0 simply comment lines 155/156 out
+  // End the start signal by setting data line high for 40 microseconds.
+  // digitalWrite(_pin, HIGH);
+  // delayMicroseconds(40);
 */
 

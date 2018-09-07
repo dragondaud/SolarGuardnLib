@@ -10,7 +10,7 @@ SolarGuardn::SolarGuardn(Stream * out,
 		char * hostname, char * wifi_ssid, char * wifi_pass,
 		char * mqtt_server, uint16_t mqtt_port,
 		char * mqtt_topic, char * mqtt_user, char * mqtt_pass,
-		char * tzKey, sg_sensors temp_sensor, sg_sensors sensor
+		char * tzKey, uint16_t sensors
 	) : _out(out), _mqtt(_mqttwifi) {
 	_app_name = hostname;
 	_wifi_ssid = wifi_ssid;
@@ -25,13 +25,14 @@ SolarGuardn::SolarGuardn(Stream * out,
 	_ledPin = LED_BUILTIN;
 	_tUnit = BME280::TempUnit_Fahrenheit;
 	_pUnit = BME280::PresUnit_inHg;
-	_sensors = (temp_sensor | sensor);
+	_sensors = sensors;
 }
 
 void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	while (!_out);		// wait for stream to open
 	delay(100);			// ... and settle
 	flushIn();			// purge input buffer
+	if (_ledPin) pinMode(_ledPin, OUTPUT);
 	_out->println();
 	_out->print("setup: starting ");
 	_out->println(_app_name);
@@ -52,12 +53,11 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	}
 	_out->println(" OK");
 	_wifip = WiFi.localIP();
-	MDNS.begin(_hostname.c_str());
 	if (timezone == "") timezone = getIPlocation();
 	setNTP(timezone);
 	_upTime = time(nullptr);
 	startOTA();
-	Wire.begin(data, clock);
+	if (data) Wire.begin(data, clock);
 	IPAddress mqttIP;
 	if (!WiFi.hostByName(_mqtt_server, mqttIP)) {
 		_out->print("setup: mqtt server invalid ");
@@ -127,6 +127,8 @@ void SolarGuardn::outDiag() {
 	_out->println(ESP.getFreeSketchSpace());
 	_out->print("Flash Size: ");
 	_out->println(ESP.getFlashChipRealSize());
+	_out->print("Free Heap: ");
+	_out->println(ESP.getFreeHeap());
 	int c = SaveCrash.count();
 	if (c) {
 		_out->print("SAVED CRASH DUMPS: ");
@@ -227,17 +229,11 @@ void SolarGuardn::startOTA() {
 } // startOTA
 
 void SolarGuardn::ledOn() {
-	analogWrite(_ledPin, 1);
+	if (_ledPin) digitalWrite(_ledPin, LOW);
 } // ledOn
 
 void SolarGuardn::ledOff() {
-	// PWM dim LED to off
-	for (int i = 23; i < 1023; i++) {
-		analogWrite(_ledPin, i);
-		delay(2);
-	}
-	analogWrite(_ledPin, 0);
-	digitalWrite(_ledPin, HIGH);
+	if (_ledPin) digitalWrite(_ledPin, HIGH);
 } // ledOff
 
 void SolarGuardn::flushIn() {
@@ -307,12 +303,12 @@ long SolarGuardn::getOffset(const String timezone) {
 	// using google maps API, return TimeZone for provided timestamp
 	HTTPClient http;
 	String URL = "http://api.timezonedb.com/v2/list-time-zone?key=" + String(_tzKey)
-				+ "&format=json&zone=" + UrlEncode(timezone);
+				+ "&format=json&zone=" + timezone;
 	String payload;
-	long offset;
+	int stat;
 	http.setUserAgent(UserAgent);
 	if (http.begin(URL)) {
-		int stat = http.GET();
+		stat = http.GET();
 		if (stat > 0) {
 			if (stat == HTTP_CODE_OK) {
 				payload = http.getString();
@@ -320,8 +316,8 @@ long SolarGuardn::getOffset(const String timezone) {
 				JsonObject& root = jsonBuffer.parseObject(payload);
 				if (root.success()) {
 					JsonObject& zones = root["zones"][0];
-					offset = zones["gmtOffset"];
-					_out->println("getOffset: " + timezone + "(" + String(offset) + ")");
+					_TZ = zones["gmtOffset"];
+					_out->println("getOffset: " + timezone + "(" + String(_TZ) + ")");
 				} else {
 					_out->println("getOffset: JSON parse failed!");
 					_out->println(payload);
@@ -334,14 +330,14 @@ long SolarGuardn::getOffset(const String timezone) {
 		}
 	}
 	http.end();
-	return offset;
+	return stat;
 } // getOffset
 
 void SolarGuardn::setNTP(const String timezone) {
 	// using timezone configure NTP with local timezone
-	long tz = getOffset(timezone);
-	if (!tz) return;
-	_TZ = tz;
+	while (getOffset(timezone) != HTTP_CODE_OK) {
+		delay(1000);
+	}
 	_out->print("setNTP: configure NTP ...");
 	configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 	while (time(nullptr) < (30 * 365 * 24 * 60 * 60)) {
@@ -415,11 +411,11 @@ bool SolarGuardn::readTemp(DHT & dht) {
 	int c = 0;
 	float t, h;
 	while (c < SG_RETRIES) {
-		t = dht.readTemperature(true);
 		h = dht.readHumidity();
+		t = dht.readTemperature(true);
 		if (isnan(t) || isnan(h)) {
 			c++;
-			delay(200);
+			delay(500);
 		} else {
 			temp = t;
 			humid = h;
@@ -436,12 +432,12 @@ bool SolarGuardn::readTemp(DHT & dht) {
 	return false;
 }
 
-bool SolarGuardn::readTemp(ClosedCube_HDC1080 & hdc) {
+bool SolarGuardn::readTemp(Adafruit_AM2320 & asa) {
 	int c = 0;
 	float t, h;
 	while (c < SG_RETRIES) {
-		t = hdc.readTemperature();
-		h = hdc.readHumidity();
+		t = asa.readTemperature();
+		h = asa.readHumidity();
 		if (isnan(t) || isnan(h)) {
 			c++;
 			delay(200);
@@ -451,8 +447,8 @@ bool SolarGuardn::readTemp(ClosedCube_HDC1080 & hdc) {
 			return true;
 		}
 	}
-	pubDebug("hdc reading invalid");
-	_out->print("hdc: bad reading, ");
+	pubDebug("asa reading invalid");
+	_out->print("asa: bad reading, ");
 	_out->print(t);
 	_out->print(", ");
 	_out->print(h);
@@ -506,22 +502,25 @@ bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 
 bool SolarGuardn::readCCS(Adafruit_CCS811 & ccs) {
 	int c = 0;
-	ccs.calculateTemperature();
+	if (temp != 0) ccs.setEnvironmentalData(humid, temp);
+	//ccs.setDriveMode(CCS811_DRIVE_MODE_250MS);
+	delay(300);
 	while (c < SG_RETRIES) {
 		if (!ccs.available()) {
 			c++;
-			delay(200);
+			delay(250);
 		} else {
 			if (!ccs.readData()) {
 				eCO2 = ccs.geteCO2();
 				TVOC = ccs.getTVOC();
+				//ccs.setDriveMode(CCS811_DRIVE_MODE_IDLE);
 				return true;
 			}
 		}
 	}
 	pubDebug("ccs invalid reading");
 	_out->println("ccs: bad reading");
-	_timer = millis();
+	//_timer = millis();
 	return false;
 } // readCCS
 
@@ -593,6 +592,9 @@ void SolarGuardn::pubJSON() {
 		root["colorTemp"] = colorTemp;
 		root["lux"] = lux;
 	}
+	if (eCO2 > 0) root["eCO2"] = eCO2;
+	if (TVOC > 0) root["TVOC"] = TVOC;
+	if (voltage > 0) root["volts"] = voltage;
 	root["ip"] = _wifip.toString();
 	root["time"] = t;
 	root["timestamp"] = int(_now);
