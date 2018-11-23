@@ -1,15 +1,52 @@
-SolarGuardn		KEYWORD1
-begin			KEYWORD2
-handle			KEYWORD2
-ledOn			KEYWORD2
-ledOff			KEYWORD2
-upTime			KEYWORD2
-localTime		KEYWORD2
-temp			LITERAL1
-humid			LITERAL1
-pressure		LITERAL1
-lux				LITERAL1
-colorTemp		LITERAL1
-range			LITERAL1
-moist			LITERAL1
-sg_sensors		KEYWORD1
+#######################################
+# Datatypes & Classes (KEYWORD1)
+#######################################
+
+SolarGuardn	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+UrlEncode	KEYWORD2
+begin	KEYWORD2
+checkIn	KEYWORD2
+doCmd	KEYWORD2
+flushIn	KEYWORD2
+getDist	KEYWORD2
+getIPlocation	KEYWORD2
+handle	KEYWORD2
+ledOff	KEYWORD2
+ledOn	KEYWORD2
+localTime	KEYWORD2
+mqttConnect	KEYWORD2
+mqttPublish	KEYWORD2
+outDiag	KEYWORD2
+pubDebug	KEYWORD2
+pubJSON	KEYWORD2
+readCCS	KEYWORD2
+readMoisture	KEYWORD2
+readTCS	KEYWORD2
+readTemp	KEYWORD2
+setNTP	KEYWORD2
+startOTA	KEYWORD2
+upTime	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+IPAddress	LITERAL1
+SG_AIR	LITERAL1
+SG_ASA	LITERAL1
+SG_BETWEEN	LITERAL1
+SG_BME	LITERAL1
+SG_DHT	LITERAL1
+SG_INVALID	LITERAL1
+SG_LIGHT	LITERAL1
+SG_MOIST	LITERAL1
+SG_RANGE	LITERAL1
+SG_RETRIES	LITERAL1
+UserAgent	LITERAL1
+VERSION	LITERAL1
+WiFiClient	LITERAL1

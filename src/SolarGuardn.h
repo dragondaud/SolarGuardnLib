@@ -11,7 +11,7 @@
 
 #include "Arduino.h"
 #include "Stream.h"
-#include <ESP8266WiFi.h>			// Arduino IDE ESP8266 2.4.0 from https://github.com/esp8266/Arduino
+#include <ESP8266WiFi.h>			// Arduino IDE ESP8266 2.4.2 from https://github.com/esp8266/Arduino
 #include <ESP8266HTTPClient.h>		// included
 #include <ESP8266mDNS.h>			// included
 #include <WiFiUdp.h> 				// included
@@ -30,7 +30,7 @@
 #undef SAVE_CRASH_SPACE_SIZE
 #define SAVE_CRASH_SPACE_SIZE 0x1000	// flash reserved to store crash data
 
-#define MQTT_MAX_PACKET_SIZE 512
+// must change MQTT_MAX_PACKET_SIZE to 512
 #include <PubSubClient.h>			// https://github.com/knolleary/pubsubclient
 
 #define UserAgent	"SolarGuardn/1.0 (Arduino ESP8266)"
@@ -114,6 +114,7 @@ private:
 	BME280::TempUnit _tUnit;
 	BME280::PresUnit _pUnit;
 	uint16_t _sensors;
+	EspSaveCrash _SaveCrash;
 };
 #endif
 

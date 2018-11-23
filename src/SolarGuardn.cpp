@@ -72,7 +72,7 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 		String cmd = String((char*)payload);
 		cmd.trim();
 		cmd.toLowerCase();
-		_out->print("mqtt: [");
+		_out->print(F("mqtt: ["));
 		_out->print(topic);
 		_out->println("] " + cmd);
 		doCmd(cmd);
@@ -92,11 +92,12 @@ bool SolarGuardn::handle() {
 	}
 	if (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0)) {
 		_out->println("loop: WiFi invalid");
-		delay(1000);
+		delay(5000);
 		ESP.restart();
 	}
 	checkIn();
 	ArduinoOTA.handle();
+	if (!_mqtt.connected()) mqttConnect();
 	_mqtt.loop();
 	_now = time(nullptr);
 	if ((_now + _TZ) > _twoAM) {
@@ -129,7 +130,7 @@ void SolarGuardn::outDiag() {
 	_out->println(ESP.getFlashChipRealSize());
 	_out->print("Free Heap: ");
 	_out->println(ESP.getFreeHeap());
-	int c = SaveCrash.count();
+	int c = _SaveCrash.count();
 	if (c) {
 		_out->print("SAVED CRASH DUMPS: ");
 		_out->println(c);
@@ -175,11 +176,11 @@ void SolarGuardn::doCmd(String cmd) {
 		delay(1000);
 		ESP.restart();
 	} else if (cmd == "clear") {
-		SaveCrash.clear();
+		_SaveCrash.clear();
 		_out->println("cmd: Crash information cleared");
 		pubDebug("SaveCrash cleared");
 	} else if (cmd == "print") {
-		SaveCrash.print();
+		_SaveCrash.print();
 	} else if (cmd == "zero") {
 		_out->println("cmd: Attempting to divide by zero ...");
 		pubDebug("divide by zero");
@@ -388,8 +389,7 @@ String SolarGuardn::localTime() {
 void SolarGuardn::mqttConnect() {
 	// connect MQTT and emit ESP info to debug channel
 	if (!_mqtt.connect(_hostname.c_str(), _mqtt_user, _mqtt_pass)) {
-		_out->print("mqtt: not connected ");
-		_out->println(_mqtt.state());
+		_out->println(PSTR("mqtt: not connected ") + String(_mqtt.state()));
 		delay(15000);
 		ESP.restart();
 	}
@@ -400,11 +400,10 @@ void SolarGuardn::mqttConnect() {
 
 void SolarGuardn::mqttPublish(String topic, String data) {
 	// publish data to topic on mqtt, reconnect as needed
-	if (!_mqtt.connected()) {
-		mqttConnect();
+	if (!_mqtt.connected()) mqttConnect();
+	if (!_mqtt.publish((String(_mqtt_topic) + "/" + _hostname + "/" + topic).c_str(), data.c_str())) {
+		_out->println(PSTR("mqtt pub error ") + String(_mqtt.state()));
 	}
-	int r = _mqtt.publish((String(_mqtt_topic) + "/" + _hostname + "/" + topic).c_str(), data.c_str());
-	if (!r) _out->println("mqtt: error: " + String(r));
 } // mqttPublish
 
 bool SolarGuardn::readTemp(DHT & dht) {
@@ -608,7 +607,7 @@ void SolarGuardn::pubDebug(String cmd) {
 	// create and publish JSON buffer of debug info
 	String t = localTime();
 	float tz = _TZ / 3600;
-	int c = SaveCrash.count();
+	int c = _SaveCrash.count();
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 	root["app"] = _app_name;
