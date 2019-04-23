@@ -1,6 +1,6 @@
 /*
 	SolarGuardn Arduino Library
-	copyright 2018 by David M Denney <dragondaud@gmail.com>
+	copyright 2019 by David Denney <dragondaud@gmail.com>
 	distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
@@ -266,10 +266,11 @@ String SolarGuardn::UrlEncode(const String url) {
 String SolarGuardn::getIPlocation() {
 	// Using freegeoip.net to map public IP's location
 	HTTPClient http;
+	WiFiClient client;
 	String URL = "http://ip-api.com/json";
 	String loc;
 	http.setUserAgent(UserAgent);
-	if (http.begin(URL)) {
+	if (http.begin(client, URL)) {
 		int stat = http.GET();
 		if (stat > 0) {
 			if (stat == HTTP_CODE_OK) {
@@ -303,12 +304,13 @@ String SolarGuardn::getIPlocation() {
 long SolarGuardn::getOffset(const String timezone) {
 	// using google maps API, return TimeZone for provided timestamp
 	HTTPClient http;
+	WiFiClient client;
 	String URL = "http://api.timezonedb.com/v2/list-time-zone?key=" + String(_tzKey)
 				+ "&format=json&zone=" + timezone;
 	String payload;
 	int stat;
 	http.setUserAgent(UserAgent);
-	if (http.begin(URL)) {
+	if (http.begin(client, URL)) {
 		stat = http.GET();
 		if (stat > 0) {
 			if (stat == HTTP_CODE_OK) {

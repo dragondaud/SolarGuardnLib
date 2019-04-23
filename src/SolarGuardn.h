@@ -1,6 +1,6 @@
 /*
 	SolarGuardn Arduino Library
-	copyright 2018 by David M Denney <dragondaud@gmail.com>
+	copyright 2019 by David Denney <dragondaud@gmail.com>
 	distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
