@@ -1,6 +1,6 @@
 # SolarGuardnLib
-## v0.8.4 PRE-RELEASE 31-Jul-2018
-### Copyright 2018 by David Denney <dragondaud@gmail.com>
+## v0.9.0 PRE-RELEASE 25-April-2019
+### Copyright 2019 by David Denney <dragondaud@gmail.com>
 
 Master repository: https://github.com/dragondaud/SolarGuardnLib
 
