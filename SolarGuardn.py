@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-#	SolarGuardn AIO uploader V0.9.0 development
-#	copyright 2019 by David Denney <dragondaud@gmail.com>
-#	distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
+#   SolarGuardn AIO uploader V0.9.0 development
+#   copyright 2019 by David Denney <dragondaud@gmail.com>
+#   distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 #
-#	Monitor 'localhost' mqtt server and publish data to Adafruit IO
+#   Monitor 'localhost' mqtt server and publish data to Adafruit IO
 
 import time
 import sys
@@ -12,8 +12,8 @@ import signal
 import json
 import paho.mqtt.client as mqtt
 
-username = ""               #AIO username
-password = ""               #AIO key
+username = ""               # AIO username
+password = ""               # AIO key
 myTopic  = "SolarGuardn/#"  # Or set to specific unit "SolarGuardn/SolarGuardn-XXXXXX/#"
 sghost   = ""               # unit to publish cmd channel to, automatically set to first unit heard or set here
 

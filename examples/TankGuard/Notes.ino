@@ -1,6 +1,6 @@
 /*
-   SolarGuardn - TankGuard v0.8.4 PRE-RELEASE
-   copyright 2018 by David M Denney <dragondaud@gmail.com>
+   SolarGuardn - TankGuard v0.9.0 PRE-RELEASE
+   copyright 2019 by David Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 
    TankGuard monitors water level in tank and reports data using MQTT.
@@ -16,4 +16,3 @@
    Board: NodeMCU 1.0, Freq: 80MHz, Flash: 4M (1M SPIFFS), Speed: 115200, Port: serial or OTA IP
 
 */
-

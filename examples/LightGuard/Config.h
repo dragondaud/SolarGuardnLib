@@ -24,8 +24,8 @@ SolarGuardn sg(
   tzKey, (SG_ASA | SG_LIGHT)
 );
 
-#define SCL D6    // I2C clock
-#define SDA D7    // I2C data
+#define SCL D1    // I2C clock
+#define SDA D2    // I2C data
 
 #ifdef sgBME
 BME280I2C bme(

@@ -7,7 +7,7 @@
 #ifndef SolarGuardn_h
 #define SolarGuardn_h
 
-#define VERSION "0.8.4"
+#define VERSION "0.9.0"
 
 #include "Arduino.h"
 #include "Stream.h"
@@ -52,13 +52,13 @@ enum sg_sensors {
 class SolarGuardn {
 public:
 	SolarGuardn(Stream * out,
-		char * hostname, char * wifi_ssid, char * wifi_pass,
-		char * mqtt_server, uint16_t mqtt_port,
-		char * mqtt_topic, char * mqtt_user, char * mqtt_pass,
-		char * tzKey, uint16_t temp_sensor
+		const char * hostname, const char * wifi_ssid, const char * wifi_pass,
+		const char * mqtt_server, uint16_t mqtt_port,
+		const char * mqtt_topic, const char * mqtt_user, const char * mqtt_pass,
+		const char * tzKey, uint16_t temp_sensor
 	);
 
-	void begin(uint16_t data, uint16_t clock);
+	void begin(uint8_t data, uint8_t clock);
 	bool handle();
 	void ledOn();
 	void ledOff();

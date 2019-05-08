@@ -1,6 +1,6 @@
 # SolarGuardnLib
-## v0.8.4 PRE-RELEASE 31-Jul-2018
-### Copyright 2018 by David Denney <dragondaud@gmail.com>
+## v0.9.0 PRE-RELEASE
+### Copyright 2019 by David Denney <dragondaud@gmail.com>
 
 Master repository: https://github.com/dragondaud/SolarGuardnLib
 
@@ -27,7 +27,7 @@ and atmospheric pressure, then report changes to any MQTT broker.
 
 Some code is based on examples from the ESP8266, ArduinoOTA and other libraries.
 
-Sketch requires ESP8266 library v2.4.1, docs at: https://arduino-esp8266.readthedocs.io/en/2.4.1/
+Sketch requires ESP8266 library v2.5.0, docs at: https://arduino-esp8266.readthedocs.io/en/2.5.0/
 
 Add this to File->Preferences->Additional Board Manager URLs:
 http://arduino.esp8266.com/stable/package_esp8266com_index.json

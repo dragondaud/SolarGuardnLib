@@ -7,10 +7,10 @@
 #include "SolarGuardn.h"
 
 SolarGuardn::SolarGuardn(Stream * out,
-		char * hostname, char * wifi_ssid, char * wifi_pass,
-		char * mqtt_server, uint16_t mqtt_port,
-		char * mqtt_topic, char * mqtt_user, char * mqtt_pass,
-		char * tzKey, uint16_t sensors
+		const char * hostname, const char * wifi_ssid, const char * wifi_pass,
+		const char * mqtt_server, uint16_t mqtt_port,
+		const char * mqtt_topic, const char * mqtt_user, const char * mqtt_pass,
+		const char * tzKey, uint16_t sensors
 	) : _out(out), _mqtt(_mqttwifi) {
 	_app_name = hostname;
 	_wifi_ssid = wifi_ssid;
@@ -28,7 +28,7 @@ SolarGuardn::SolarGuardn(Stream * out,
 	_sensors = sensors;
 }
 
-void SolarGuardn::begin(uint16_t data, uint16_t clock) {
+void SolarGuardn::begin(uint8_t data, uint8_t clock) {
 	while (!_out);		// wait for stream to open
 	delay(100);			// ... and settle
 	flushIn();			// purge input buffer
@@ -68,7 +68,7 @@ void SolarGuardn::begin(uint16_t data, uint16_t clock) {
 	_mqtt.setServer(_mqtt_server, _mqtt_port);
 	_mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
 		// display incoming MQTT messages
-		payload[length] = NULL;
+		payload[length] = '\0';
 		String cmd = String((char*)payload);
 		cmd.trim();
 		cmd.toLowerCase();
@@ -111,6 +111,7 @@ bool SolarGuardn::handle() {
 		delay(5000);
 		return false;
 	}
+	yield();
 } // handle
 
 void SolarGuardn::outDiag() {

@@ -1,6 +1,6 @@
 /*
-   SolarGuardn - SoilGuard v0.8.4 PRE-RELEASE
-   copyright 2018 by David M Denney <dragondaud@gmail.com>
+   SolarGuardn - SoilGuard v0.9.0 PRE-RELEASE
+   copyright 2019 by David Denney <dragondaud@gmail.com>
    distributed under the terms of LGPL https://www.gnu.org/licenses/lgpl.html
 */
 
