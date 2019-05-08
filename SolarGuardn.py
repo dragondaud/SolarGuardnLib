@@ -10,12 +10,15 @@ import time
 import sys
 import signal
 import json
+from collections import OrderedDict
 import paho.mqtt.client as mqtt
 
 username = ""               # AIO username
 password = ""               # AIO key
 myTopic  = "SolarGuardn/#"  # Or set to specific unit "SolarGuardn/SolarGuardn-XXXXXX/#"
-sghost   = ""               # unit to publish cmd channel to, automatically set to first unit heard or set here
+sghost   = ""               # Topic to publish cmd channel to or set automatically
+
+keyUnits = OrderedDict( [ ("time", ""), ("temp", "*F"), ("humid", "%RH"), ("moist", "moist"), ("lux", "lux"), ("colorTemp", "*K") ] )
 
 stripped = lambda s: "".join(i for i in s if 31 < ord(i) < 127)
 
@@ -53,27 +56,23 @@ def on_message(client, userdata, msg):
 
 def upload(topic, msg):
     global sghost
-    try:
-        print topic.split("/")[1],
+    print topic.split("/")[1],
+    if 'app' in msg:
         if msg["app"] == "SolarGuardn":
             if sghost == "":
                 sghost = topic.split("/")[0] + "/" + topic.split("/")[1] + "/cmd"
-            print msg["time"] + ": ", msg["temp"], "*F,", msg["humid"], "%RH,", msg["lux"], "lux,", msg["colorTemp"], "*K,", msg["moist"], "moist"
-            adafruit.publish(username + "/f/temp", msg["temp"])
-            adafruit.publish(username + "/f/humid", msg["humid"])
-            adafruit.publish(username + "/f/lux", msg["lux"])
-            adafruit.publish(username + "/f/colorTemp", msg["colorTemp"])
-            adafruit.publish(username + "/f/moist", msg["moist"])
-    except (SystemExit, KeyboardInterrupt):
-        myStop()
-    except TypeError:
-        pass
-    except KeyError:
+            for key in keyUnits:
+                send(msg, key)
+            print
+        else:
+            print json.dumps(msg)
+    else:
         print json.dumps(msg)
-        pass
-    except:
-        print "Exception", sys.exc_info()[0]
-        myStop()
+
+def send(msg, key):
+    if key in msg:
+        print "|", msg[key], keyUnits[key],
+        adafruit.publish(username + "/f/" + key, msg[key])
 
 signal.signal(signal.SIGINT, handler)
 
