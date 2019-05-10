@@ -25,6 +25,7 @@
 #include "Adafruit_TCS34725.h"		// https://github.com/adafruit/Adafruit_TCS34725
 #include "Adafruit_CCS811.h"		// https://github.com/adafruit/Adafruit_CCS811
 #include "Adafruit_AM2320.h"		// https://github.com/adafruit/Adafruit_AM2320
+#include "Adafruit_seesaw.h"		// https://github.com/adafruit/Adafruit_Seesaw
 
 #include <EspSaveCrash.h>			// https://github.com/krzychb/EspSaveCrash
 #undef SAVE_CRASH_SPACE_SIZE
@@ -55,7 +56,7 @@ public:
 		const char * hostname, const char * wifi_ssid, const char * wifi_pass,
 		const char * mqtt_server, uint16_t mqtt_port,
 		const char * mqtt_topic, const char * mqtt_user, const char * mqtt_pass,
-		const char * tzKey, uint16_t temp_sensor
+		const char * tzKey, uint16_t sensors
 	);
 
 	void begin(uint8_t data, uint8_t clock);
@@ -69,6 +70,7 @@ public:
 	bool readTemp(Adafruit_AM2320 & asa);
 	bool readTemp(BME280I2C & bme);
 	bool readTCS(Adafruit_TCS34725 & tcs);
+	bool readMoisture(Adafruit_seesaw & ss);
 	bool readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim);
 	bool readCCS(Adafruit_CCS811 & ccs);
 	bool getDist(uint16_t trig, uint16_t echo);

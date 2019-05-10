@@ -526,6 +526,20 @@ bool SolarGuardn::readCCS(Adafruit_CCS811 & ccs) {
 	return false;
 } // readCCS
 
+bool SolarGuardn::readMoisture(Adafruit_seesaw & ss) {
+	// read soil moisture using Adafruit STEMMA Soil Sensor
+	float tempC = ss.getTemp();
+	uint16_t capread = ss.touchRead(0);
+	if (!moist) {
+		pubDebug("moisture invalid");
+		_out->println("moist: bad reading");
+		return false;
+	} else {
+		moist = round((float)capread + (float)moist / (float)2.0);
+		return true;
+	}
+} // readMoisture
+
 bool SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim) {
 	// read soil moisture using DFRobot SEN0193
 	int s = 0;
