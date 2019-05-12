@@ -67,7 +67,7 @@ void SolarGuardn::begin(uint8_t data, uint8_t clock) {
 	}
 	_mqtt.setServer(_mqtt_server, _mqtt_port);
 	_mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
-		// display incoming MQTT messages
+		// handle incoming MQTT messages
 		payload[length] = '\0';
 		String cmd = String((char*)payload);
 		cmd.trim();
@@ -84,6 +84,7 @@ void SolarGuardn::begin(uint8_t data, uint8_t clock) {
 } // begin
 
 bool SolarGuardn::handle() {
+	// handle background loop() stuff
 	int c = 0;
 	while (WiFi.status() != WL_CONNECTED && c < 10) {
 		WiFi.reconnect();
@@ -115,6 +116,7 @@ bool SolarGuardn::handle() {
 } // handle
 
 void SolarGuardn::outDiag() {
+	// output useful debug info
 	_out->print("Last reset reason: ");
 	_out->println(ESP.getResetReason());
 	_out->print("IP addr: ");
@@ -142,7 +144,8 @@ void SolarGuardn::checkIn() {
 	// check _out Stream input for commands
 	if (_out->available() > 0) {
 		char inChar = _out->read();
-		flushIn();  // flush input after each command to prevent garbage DoS
+		// flush input after each command to prevent garbage DoS
+		flushIn();
 		switch (inChar) {
 		case '0':
 			doCmd("zero");
@@ -171,6 +174,7 @@ void SolarGuardn::checkIn() {
 } // checkIn
 
 void SolarGuardn::doCmd(String cmd) {
+	// handle command from serial or mqtt
 	if (cmd == "reboot") {
 		_out->println("cmd: Rebooting...");
 		pubDebug("reboot");
@@ -203,6 +207,7 @@ void SolarGuardn::doCmd(String cmd) {
 } // doCmd
 
 void SolarGuardn::startOTA() {
+	// setup ArduinoOTA for over the air updates
 	ArduinoOTA.onStart([this]() {
 		_out->println("OTA: Start");
 		_mqtt.disconnect();
@@ -358,7 +363,7 @@ void SolarGuardn::setNTP(const String timezone) {
 	calendar->tm_hour = 2;
 	calendar->tm_min = 0;
 	calendar->tm_sec = 0;
-	_twoAM = mktime(calendar);
+	_twoAM = mktime(calendar);	// next day @ 2AM update NTP
 	String t = ctime(&_twoAM);
 	t.trim();
 	_out->print("setNTP: next timezone check @ ");
@@ -366,14 +371,15 @@ void SolarGuardn::setNTP(const String timezone) {
 } // setNTP
 
 String SolarGuardn::upTime() {
-	// output _upTime as d:h:MM:SS
+	// output _upTime as [d:]h:MM:SS
 	time_t t = _now - _upTime;
 	long s = t % 60;
 	long m = (t / 60) % 60;
 	long h = (t / (60 * 60)) % 24;
 	long d = (t / (60 * 60 * 24));
 	char buf[12];
-	snprintf(buf, sizeof(buf), "%d:%d:%02d:%02d", d, h, m, s);
+	if (d) snprintf(buf, sizeof(buf), "%d:%d:%02d:%02d", d, h, m, s);	// skip 0 days in output
+	else snprintf(buf, sizeof(buf), "%d:%02d:%02d", h, m, s);
 	return String(buf);
 } // upTime()
 
@@ -397,7 +403,7 @@ void SolarGuardn::mqttConnect() {
 		ESP.restart();
 	}
 	String t = String(_mqtt_topic) + "/" + _hostname + "/cmd";
-	_mqtt.subscribe(t.c_str());
+	_mqtt.subscribe(t.c_str());	//subscribe cmd topic
 	pubDebug("MQTT connect");
 } // mqttConnect
 
@@ -424,6 +430,8 @@ bool SolarGuardn::readTemp(DHT & dht) {
 			return true;
 		}
 	}
+	temp = 0;
+	humid = 0;
 	pubDebug("dht reading invalid");
 	_out->print("dht: bad reading, ");
 	_out->print(t);
@@ -449,6 +457,8 @@ bool SolarGuardn::readTemp(Adafruit_AM2320 & asa) {
 			return true;
 		}
 	}
+	temp = 0;
+	humid = 0;
 	pubDebug("asa reading invalid");
 	_out->print("asa: bad reading, ");
 	_out->print(t);
@@ -474,6 +484,9 @@ bool SolarGuardn::readTemp(BME280I2C & bme) {
 			return true;
 		}
 	}
+	temp = 0;
+	humid = 0;
+	pressure = 0;
 	pubDebug("bme reading invalid");
 	_out->print("bme: bad reading, ");
 	_out->print(t);
@@ -492,7 +505,9 @@ bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 	tcs.getRawData(&r, &g, &b, &c);
 	colorTemp = tcs.calculateColorTemperature(r, g, b);
 	lux = tcs.calculateLux(r, g, b);
-	if (isnan(colorTemp) || isnan(lux)) {
+	if (isnan(colorTemp) || isnan(lux)) {	// zero both if either invalid
+		colorTemp = 0;
+		lux = 0;
 		pubDebug("tcs invalid reading");
 		_out->println("tcs: bad reading");
 		_timer = millis();
@@ -530,12 +545,13 @@ bool SolarGuardn::readMoisture(Adafruit_seesaw & ss) {
 	// read soil moisture using Adafruit STEMMA Soil Sensor
 	float tempC = ss.getTemp();
 	uint16_t capread = ss.touchRead(0);
-	if (!moist) {
+	if (!capread) {
 		pubDebug("moisture invalid");
 		_out->println("moist: bad reading");
 		return false;
 	} else {
-		moist = round((float)capread + (float)moist / (float)2.0);
+		if (moist) moist = round((float)(capread + moist) / 2.0);
+		else moist = capread;
 		return true;
 	}
 } // readMoisture
@@ -546,13 +562,13 @@ bool SolarGuardn::readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_
 	for (int i = 0; i < num; i++) {
 		int r = 0, x = 0;
 		do {
-			digitalWrite(pow, HIGH);       // power to moisture sensor
+			digitalWrite(pow, HIGH);	// power to moisture sensor
 			delay(tim);
-			r = 1023 - analogRead(pin);   // read analog value from moisture sensor (invert for capacitance sensor)
-			digitalWrite(pow, LOW);        // turn off moisture sensor
+			r = 1023 - analogRead(pin);	// read analog value from moisture sensor (invert for capacitance sensor)
+			digitalWrite(pow, LOW);		// turn off moisture sensor
 			delay(tim * 1.2);
 			x++;
-			} while (((r < 200) || (r > 800)) && x < num);  // skip invalid values
+			} while (((r < 200) || (r > 800)) && x < num);	// skip invalid values
 		s += r;
 	}
 	moist = round((float)s / (float)num);
