@@ -10,7 +10,7 @@ SolarGuardn::SolarGuardn(Stream * out,
 		const char * hostname, const char * wifi_ssid, const char * wifi_pass,
 		const char * mqtt_server, uint16_t mqtt_port,
 		const char * mqtt_topic, const char * mqtt_user, const char * mqtt_pass,
-		const char * tzKey, uint16_t sensors
+		const char * tzKey, uint16_t sensors, uint16_t ledPin
 	) : _out(out), _mqtt(_mqttwifi) {
 	_app_name = hostname;
 	_wifi_ssid = wifi_ssid;
@@ -22,7 +22,7 @@ SolarGuardn::SolarGuardn(Stream * out,
 	_mqtt_pass = mqtt_pass;
 	_tzKey = tzKey;
 	_out = out;
-	_ledPin = LED_BUILTIN;
+	_ledPin = ledPin;
 	_tUnit = BME280::TempUnit_Fahrenheit;
 	_pUnit = BME280::PresUnit_inHg;
 	_sensors = sensors;
@@ -513,6 +513,7 @@ bool SolarGuardn::readTCS(Adafruit_TCS34725 & tcs) {
 		_timer = millis();
 		return false;
 	} else {
+		if (lux == 0) colorTemp = 0;
 		return true;
 	}
 } // readTCS
@@ -611,6 +612,7 @@ bool SolarGuardn::getDist(uint16_t trig, uint16_t echo) {
 void SolarGuardn::pubJSON() {
 	// create and publish JSON buffer
 	String t = localTime();
+	voltage = (float)ESP.getVcc() / 1000.0;
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 	root["app"] = _app_name;
@@ -620,10 +622,8 @@ void SolarGuardn::pubJSON() {
 	if (pressure > 0) root["pressure"] = (float)round(pressure * 100) / 100;
 	if (moist > 0) root["moist"] = moist;
 	if (range > 0) root["range"] = range;
-	if (lux > 0) {
-		root["colorTemp"] = colorTemp;
-		root["lux"] = lux;
-	}
+	root["colorTemp"] = colorTemp;
+	root["lux"] = lux;
 	if (eCO2 > 0) root["eCO2"] = eCO2;
 	if (TVOC > 0) root["TVOC"] = TVOC;
 	if (voltage > 0) root["volts"] = voltage;
@@ -662,3 +662,8 @@ void SolarGuardn::pubDebug(String cmd) {
 	mqttPublish("debug", t);
 } // pubDebug
 
+void SolarGuardn::deepSleep(uint16_t time) {
+	// put ESP into deepSleep for [time] seconds
+	// requires D0 connected to RST
+	ESP.deepSleep(time * 1000000);
+} // deepSleep

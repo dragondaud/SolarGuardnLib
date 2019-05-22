@@ -56,7 +56,7 @@ public:
 		const char * hostname, const char * wifi_ssid, const char * wifi_pass,
 		const char * mqtt_server, uint16_t mqtt_port,
 		const char * mqtt_topic, const char * mqtt_user, const char * mqtt_pass,
-		const char * tzKey, uint16_t sensors
+		const char * tzKey, uint16_t sensors, uint16_t ledpin
 	);
 
 	void begin(uint8_t data, uint8_t clock);
@@ -76,6 +76,7 @@ public:
 	bool getDist(uint16_t trig, uint16_t echo);
 	void pubJSON();
 	void pubDebug(String cmd);
+	void deepSleep(uint16_t time);
 
 	String timezone;
 	float temp, humid, pressure, voltage;

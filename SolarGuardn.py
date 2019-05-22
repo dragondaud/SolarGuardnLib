@@ -18,7 +18,8 @@ password = ""               # AIO key
 myTopic  = "SolarGuardn/#"  # Or set to specific unit "SolarGuardn/SolarGuardn-XXXXXX/#"
 sghost   = ""               # Topic to publish cmd channel to or set automatically
 
-keyUnits = OrderedDict( [ ("time", ""), ("temp", "*F"), ("humid", "%RH"), ("moist", "moist"), ("lux", "lux"), ("colorTemp", "*K") ] )
+keyUnits = OrderedDict( [ ("time", ""), ("temp", "*F"), ("humid", "%RH"),
+	("moist", "moist"), ("lux", "lux"), ("colorTemp", "*K"), ("volts", "Vcc" ] )
 
 stripped = lambda s: "".join(i for i in s if 31 < ord(i) < 127)
 
@@ -71,7 +72,7 @@ def upload(topic, msg):
 
 def send(msg, key):
     if key in msg:
-        print "|", msg[key], keyUnits[key],
+        print "| " + str(msg[key]) + keyUnits[key],
         adafruit.publish(username + "/f/" + key, msg[key])
 
 signal.signal(signal.SIGINT, handler)
