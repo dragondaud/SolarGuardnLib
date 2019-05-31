@@ -70,7 +70,7 @@ public:
 	bool readTemp(Adafruit_AM2320 & asa);
 	bool readTemp(BME280I2C & bme);
 	bool readTCS(Adafruit_TCS34725 & tcs);
-	bool readMoisture(Adafruit_seesaw & ss);
+	bool readMoisture(Adafruit_seesaw & ss, uint16_t num);
 	bool readMoisture(uint16_t pin, uint16_t pow, uint16_t num, uint16_t tim);
 	bool readCCS(Adafruit_CCS811 & ccs);
 	bool getDist(uint16_t trig, uint16_t echo);
