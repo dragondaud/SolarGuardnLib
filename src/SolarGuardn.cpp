@@ -79,6 +79,7 @@ void SolarGuardn::begin(uint8_t data, uint8_t clock) {
 	} );
 	outDiag();
 	mqttConnect();
+	voltage = getVoltage(5);
 	_out->print(WiFi.hostname());
 	_out->println(" ready");
 } // begin
@@ -101,6 +102,8 @@ bool SolarGuardn::handle() {
 	if (!_mqtt.connected()) mqttConnect();
 	_mqtt.loop();
 	_now = time(nullptr);
+	voltage = getVoltage(5);
+	yield();
 	if ((_now + _TZ) > _twoAM) {
 		pubDebug("TZ update");
 		setNTP(timezone);
@@ -112,7 +115,6 @@ bool SolarGuardn::handle() {
 		delay(5000);
 		return false;
 	}
-	yield();
 } // handle
 
 void SolarGuardn::outDiag() {
@@ -545,7 +547,7 @@ bool SolarGuardn::readCCS(Adafruit_CCS811 & ccs) {
 bool SolarGuardn::readMoisture(Adafruit_seesaw & ss, uint16_t num) {
 	// read soil moisture using Adafruit STEMMA Soil Sensor
 	// average 'num' samples with current value
-	uint16_t average, capread, count = 0;
+	uint16_t average, capread, count = 1;
 	if (moist) average = moist;		// average starts with previous value
 	else average = ss.touchRead(0);	// or extra sample if none
 	for (int i = 0; i < num; i++) {
@@ -556,8 +558,8 @@ bool SolarGuardn::readMoisture(Adafruit_seesaw & ss, uint16_t num) {
 		}
 		delay(1);
 	}
-	if (count) {
-		moist = round((float)average / (float)(count + 1));	//store running average
+	if (count > 1) {
+		moist = round((float)average / (float)count);	// store running average
 		return true;
 	} else {
 		pubDebug("moisture invalid");
@@ -617,10 +619,19 @@ bool SolarGuardn::getDist(uint16_t trig, uint16_t echo) {
 	}
 } // getDist
 
+float SolarGuardn::getVoltage(uint16_t num) {
+	// multisample Vcc 'num' times
+	uint32_t average;
+	for (int i = 0; i < num; i++) {
+		average += ESP.getVcc();
+		delay(10);
+	}
+	return (float)round((float)average / (float)num) / 1000.0;
+} // getVoltage
+
 void SolarGuardn::pubJSON() {
 	// create and publish JSON buffer
 	String t = localTime();
-	voltage = (float)ESP.getVcc() / 1000.0;
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 	root["app"] = _app_name;
@@ -668,6 +679,7 @@ void SolarGuardn::pubDebug(String cmd) {
 	root["freeheap"] = int(ESP.getFreeHeap());
 	root.printTo(t = "");
 	mqttPublish("debug", t);
+	delay(1000);
 } // pubDebug
 
 void SolarGuardn::deepSleep(uint16_t time) {

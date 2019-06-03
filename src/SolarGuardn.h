@@ -77,6 +77,7 @@ public:
 	void pubJSON();
 	void pubDebug(String cmd);
 	void deepSleep(uint16_t time);
+	float getVoltage(uint16_t num);
 
 	String timezone;
 	float temp, humid, pressure, voltage;
